@@ -16,9 +16,19 @@ note: you may want to clone this repo into a dirtory on your machine that you or
 note: **/home/[your account name] should be /Users/[your account name] to work with the paths that are defined in Mac OS X.**
 
 ## Sign-up for the Community Edition of Databricks and import archives
-[Databrick Community Edition FAQ](https://databricks.com/product/faq/community-edition)
-  
-Note: you will also be receiving an email invite to the class shared Databricks Workspace which is where you will be doing your final project.
+[Databrick Community Edition](https://www.databricks.com/try-databricks#account)
+<table>
+<tr>
+<td><img src="https://data-science-at-scale.s3.amazonaws.com/images/dbce1.png"></td>
+<td><img src="https://data-science-at-scale.s3.amazonaws.com/images/dbce2.png"></td>
+<td><img src="https://data-science-at-scale.s3.amazonaws.com/images/dbce3.png"></td>
+</tr>
+<table>
+<h2>NOTES:</h2>
+<ul>
+<li>THE SELECTION OF THE DATABRICKS COMMUNITY EDITION LINK AT THE BOTTOM OF THE FORM... DO NOT SIGN UP FOR THE FULL VERSION!
+<li>You will also be receiving an invite later in the course to the class shared Databricks Workspace which is where you will be doing your final project.
+</ul>
 
 Here is some helpful information about importing archives into to the Databricks Envioronment: 
 https://docs.databricks.com/notebooks/notebooks-manage.html#import-a-notebook

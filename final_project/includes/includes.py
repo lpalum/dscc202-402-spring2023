@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import json
 import datetime
+import time
 
 # COMMAND ----------
 
@@ -31,6 +32,7 @@ BIKE_TRIP_DATA_PATH = 'dbfs:/FileStore/tables/raw/bike_trips/'
 
 BIKE_STATION_JSON = "https://gbfs.citibikenyc.com/gbfs/es/station_information.json"
 BIKE_STATION_STATUS_JSON = "https://gbfs.citibikenyc.com/gbfs/es/station_status.json"
+WEATHER_FORECAST_JSON = "https://api.openweathermap.org/data/2.5/onecall?lat=40.7128792&lon=-74.0060&exclude=current,minutely,daily,alerts&appid=13096c31b7822092c189c5c4682e574c"
 
 # Some configuration of the cluster
 spark.conf.set("spark.sql.shuffle.partitions", "40")  # Configure the size of shuffles the same as core count on your cluster
@@ -76,7 +78,20 @@ def get_bike_stations():
     df=pd.DataFrame([])
   return df['last_updated'].values[0], pd.json_normalize(df['data']['stations'])
 
-
+"""
+Docs: https://openweathermap.org/api/one-call-api#hist_parameter
+"""
+def get_current_weather():
+  r=requests.get(WEATHER_FORECAST_JSON)
+  if len(r.text)>0:
+    tzo = pd.json_normalize(json.loads(r.text))['timezone_offset'].values[0]
+    df=pd.json_normalize(json.loads(r.text), max_level=4)
+    df=pd.json_normalize(df['hourly'][0])
+    df['time']=df['dt'].apply(lambda x: time.strftime('%Y-%m-%d %H:%M:%S',  time.gmtime(x+tzo)))
+  else:
+    print(f"Unable to retreive weather")
+    df=pd.DataFrame([])
+  return df
 
 # COMMAND ----------
 

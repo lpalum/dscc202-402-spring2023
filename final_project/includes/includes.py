@@ -23,6 +23,20 @@ GROUPS = [['G01', 'tcharle3@ur.rochester.edu', 'jbrehm@ur.rochester.edu', 'ccoll
 ['GXX', 'lpalum@gmail.com', None, None, None, None]
 ]
 
+GROUPS_STATION_ASSIGNMENT = {'G01':'W 21 St & 6 Ave',
+ 'G02':'West St & Chambers St',
+ 'G03':'1 Ave & E 68 St',
+ 'G04':'6 Ave & W 33 St',
+ 'G05':'University Pl & E 14 St',
+ 'G06':'Broadway & E 14 St',
+ 'G07':'Broadway & W 25 St',
+ 'G08':'W 31 St & 7 Ave',
+ 'G09':'E 33 St & 1 Ave',
+ 'G10':'8 Ave & W 33 St',
+ 'G11':'Cleveland Pl & Spring St',
+ 'G12':'11 Ave & W 41 St',
+ 'G13':'Lafayette St & E 8 St',
+ 'GXX':'Lafayette St & E 8 St'}
 
 # COMMAND ----------
 
@@ -30,9 +44,9 @@ GROUPS = [['G01', 'tcharle3@ur.rochester.edu', 'jbrehm@ur.rochester.edu', 'ccoll
 NYC_WEATHER_FILE_PATH = 'dbfs:/FileStore/tables/raw/weather/NYC_Weather_Data.csv'
 BIKE_TRIP_DATA_PATH = 'dbfs:/FileStore/tables/raw/bike_trips/'
 
-BIKE_STATION_JSON = "https://gbfs.citibikenyc.com/gbfs/es/station_information.json"
-BIKE_STATION_STATUS_JSON = "https://gbfs.citibikenyc.com/gbfs/es/station_status.json"
-WEATHER_FORECAST_JSON = "https://api.openweathermap.org/data/2.5/onecall?lat=40.7128792&lon=-74.0060&exclude=current,minutely,daily,alerts&appid=13096c31b7822092c189c5c4682e574c"
+BRONZE_STATION_INFO_PATH = 'dbfs:/FileStore/tables/bronze_station_info.delta'
+BRONZE_STATION_STATUS_PATH = 'dbfs:/FileStore/tables/bronze_station_status.delta'
+BRONZE_NYC_WEATHER_PATH = 'dbfs:/FileStore/tables/bronze_nyc_weather.delta'
 
 # Some configuration of the cluster
 spark.conf.set("spark.sql.shuffle.partitions", "40")  # Configure the size of shuffles the same as core count on your cluster
@@ -50,6 +64,8 @@ if GROUP_NAME == "":
     dbutils.notebook.exit(f"{USER_NAME} is  not assigned to a final project group")
     
 
+GROUP_STATION_ASSIGNMENT = GROUPS_STATION_ASSIGNMENT[GROUP_NAME]
+
 GROUP_MODEL_NAME = f"{GROUP_NAME}_model"
 
 GROUP_DB_NAME = f"{GROUP_NAME}_db"
@@ -63,50 +79,20 @@ spark.sql(f"USE {GROUP_DB_NAME}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Utility Functions to Read Station Status and Information
-def get_bike_station_status():
-  df = pd.read_json(BIKE_STATION_STATUS_JSON)
-  if len(df)==0:
-    print(f"Unable to retreive station status")
-    df=pd.DataFrame([])
-  return df['last_updated'].values[0], pd.json_normalize(df['data']['stations'])
-
-def get_bike_stations():
-  df = pd.read_json(BIKE_STATION_JSON)
-  if len(df)==0:
-    print(f"Unable to retreive stations")
-    df=pd.DataFrame([])
-  return df['last_updated'].values[0], pd.json_normalize(df['data']['stations'])
-
-"""
-Docs: https://openweathermap.org/api/one-call-api#hist_parameter
-"""
-def get_current_weather():
-  r=requests.get(WEATHER_FORECAST_JSON)
-  if len(r.text)>0:
-    tzo = pd.json_normalize(json.loads(r.text))['timezone_offset'].values[0]
-    df=pd.json_normalize(json.loads(r.text), max_level=4)
-    df=pd.json_normalize(df['hourly'][0])
-    df['time']=df['dt'].apply(lambda x: time.strftime('%Y-%m-%d %H:%M:%S',  time.gmtime(x+tzo)))
-  else:
-    print(f"Unable to retreive weather")
-    df=pd.DataFrame([])
-  return df
-
-# COMMAND ----------
-
 # DBTITLE 1,Display the Project Global Variables
 displayHTML(f"""
 <table border=1>
-<tr><td><b>Variable Name</b></td><td><b>Value</b></td></tr>
-<tr><td>NYC_WEATHER_FILE_PATH</td><td>{NYC_WEATHER_FILE_PATH}</td></tr>
-<tr><td>BIKE_TRIP_DATA_PATH</td><td>{BIKE_TRIP_DATA_PATH}</td></tr>
-<tr><td>BIKE_STATION_JSON</td><td>{BIKE_STATION_JSON}</td></tr>
-<tr><td>BIKE_STATION_STATUS_JSON</td><td>{BIKE_STATION_STATUS_JSON}</td></tr>
-<tr><td>USER_NAME</td><td>{USER_NAME}</td></tr>
-<tr><td>GROUP_NAME</td><td>{GROUP_NAME}</td></tr>
-<tr><td>GROUP_DATA_PATH</td><td>{GROUP_DATA_PATH}</td></tr>
-<tr><td>GROUP_MODEL_NAME</td><td>{GROUP_MODEL_NAME}</td></tr>
-<tr><td>GROUP_DB_NAME</td><td>{GROUP_DB_NAME}</td></tr>
+<tr><td><b>Variable Name</b></td><td><b>Value</b></td><td><b>Description</b></td></tr>
+<tr><td>NYC_WEATHER_FILE_PATH</td><td>{NYC_WEATHER_FILE_PATH}</td><td>Historic NYC Weather for Model Building</td></tr>
+<tr><td>BIKE_TRIP_DATA_PATH</td><td>{BIKE_TRIP_DATA_PATH}</td><td>Historic Bike Trip Data for Model Building (Stream this data source)</td></tr>
+<tr><td>BRONZE_STATION_INFO_PATH</td><td>{BRONZE_STATION_INFO_PATH}</td><td>Station Information (30 min refresh)</td></tr>
+<tr><td>BRONZE_STATION_STATUS_PATH</td><td>{BRONZE_STATION_STATUS_PATH}</td><td>Station Status (30 min refresh)</td></tr>
+<tr><td>BRONZE_NYC_WEATHER_PATH</td><td>{BRONZE_NYC_WEATHER_PATH}</td><td>NYC Weather (30 min refresh)</td></tr>
+<tr><td>USER_NAME</td><td>{USER_NAME}</td><td>Email of the user executing this code/notebook</td></tr>
+<tr><td>GROUP_NAME</td><td>{GROUP_NAME}</td><td>Group Assigment for this user</td></tr>
+<tr><td>GROUP_STATION_ASSIGNMENT</td><td>{GROUP_STATION_ASSIGNMENT}</td><td>Station Name to be modeled by this group</td></tr>
+<tr><td>GROUP_DATA_PATH</td><td>{GROUP_DATA_PATH}</td><td>Path to store all of your group data files (delta ect)</td></tr>
+<tr><td>GROUP_MODEL_NAME</td><td>{GROUP_MODEL_NAME}</td><td>Mlflow Model Name to be used to register your model</td></tr>
+<tr><td>GROUP_DB_NAME</td><td>{GROUP_DB_NAME}</td><td>Group Database to store any managed tables (pre-defined for you)</td></tr>
 </table>
 """)

@@ -1,8 +1,10 @@
 # Databricks notebook source
-# MAGIC %run "./includes/includes"
+# DBTITLE 1,Variables to be used within your project
+# MAGIC %run "../includes/includes"
 
 # COMMAND ----------
 
+# DBTITLE 1,Display Historic Trip Files
 display(dbutils.fs.ls(BIKE_TRIP_DATA_PATH))
 
 # COMMAND ----------
@@ -17,18 +19,12 @@ display(bdf)
 
 # COMMAND ----------
 
-lup,status_df = get_bike_station_status()
-dt = datetime.datetime.fromtimestamp(lup)
-print(dt)
-status_df.head()
+display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH))
 
 # COMMAND ----------
 
-lup,station_df = get_bike_stations()
-dt = datetime.datetime.fromtimestamp(lup)
-print(dt)
-station_df.head()
+display(spark.read.format('delta').load(BRONZE_STATION_STATUS_PATH))
 
 # COMMAND ----------
 
-get_current_weather()
+display(spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH))

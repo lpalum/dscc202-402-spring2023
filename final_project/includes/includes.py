@@ -81,6 +81,7 @@ spark.sql(f"USE {GROUP_DB_NAME}")
 
 # DBTITLE 1,Display the Project Global Variables
 displayHTML(f"""
+<H1>VERY IMPORTANT TO UNDERSTAND THE USE OF THESE VARIABLES!<br> Please ask if you are confused about their use.</H1>
 <table border=1>
 <tr><td><b>Variable Name</b></td><td><b>Value</b></td><td><b>Description</b></td></tr>
 <tr><td>NYC_WEATHER_FILE_PATH</td><td>{NYC_WEATHER_FILE_PATH}</td><td>Historic NYC Weather for Model Building</td></tr>

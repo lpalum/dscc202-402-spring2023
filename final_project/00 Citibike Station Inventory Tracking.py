@@ -1,4 +1,10 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC ##DSCC 202 - 402 Final Project Spring 2023
+# MAGIC see product description and rubric in repo same directory as this notebook.
+
+# COMMAND ----------
+
 from datetime import datetime as dt
 from datetime import timedelta
 import json

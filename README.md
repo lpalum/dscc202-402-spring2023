@@ -4,6 +4,9 @@ Course Materials for Data Science at Scale
 ## Establishing a GitHub account if your do not have one already
 [Sign up for a new github account](https://docs.github.com/en/github/getting-started-with-github/signing-up-for-a-new-github-account) <br>
 
+
+BOGUS TEXT
+
 ## Fork the class repository into your account
 Fork the dsc402 repositiory into your new account.  Note: this will create a copy of the course repo for you to add and work on within your
 own account.<br>

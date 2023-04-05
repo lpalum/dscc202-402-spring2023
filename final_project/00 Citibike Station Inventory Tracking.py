@@ -1,6 +1,9 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC ##DSCC 202 - 402 Final Project Spring 2023
+# MAGIC <p>
+# MAGIC <img src='https://data-science-at-scale.s3.amazonaws.com/images/fp2023.png'>
+# MAGIC </p>
 # MAGIC see product description and rubric in repo same directory as this notebook.
 
 # COMMAND ----------

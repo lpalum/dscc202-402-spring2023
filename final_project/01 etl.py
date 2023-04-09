@@ -14,22 +14,113 @@ print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
-# ingest weather data 
-
-wdf=spark.read.format('csv').option("header","True").option("inferSchema","True").load(NYC_WEATHER_FILE_PATH)
-display(wdf)
+# MAGIC %md
+# MAGIC ### DB
 
 # COMMAND ----------
 
+spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
-bdf=spark.read.format('csv').option("header","True").option("inferSchema","True").load(BIKE_TRIP_DATA_PATH+'202111_citibike_tripdata.csv')
-display(bdf)
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC USE ${GROUP_DB_NAME.events}
+
+# COMMAND ----------
+
+GROUP_DB_NAME
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Historic Bike data 
+# MAGIC ##### historic_bike_trip_b - bronze
+# MAGIC - Stream read historic bike data 
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col
+
+bike_schema = "ride_id STRING, rideable_type STRING, started_at TIMESTAMP, ended_at TIMESTAMP, start_station_name STRING, start_station_id STRING, end_station_name STRING, end_station_id STRING, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE, member_casual STRING"
+
+
+# COMMAND ----------
+
+(spark.readStream
+    .format("cloudFiles")
+    .option("cloudFiles.format" , "csv")
+    .option("cloudFiles.schemaHints", bike_schema)
+    .option("cloudFiles.schemaLocation", f"{GROUP_DATA_PATH}/bronze/historic_bike")
+    .option("header", "True")
+    .load(BIKE_TRIP_DATA_PATH)
+    .filter((col("start_station_name") == GROUP_STATION_ASSIGNMENT) | (col("end_station_name") == GROUP_STATION_ASSIGNMENT))
+    .writeStream
+    .format("delta")
+    .option("checkpointLocation", f"{GROUP_DATA_PATH}/bronze/historic_bike")
+    .outputMode("append")
+    .table("historic_bike_trip_b")
+)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM historic_bike_trip_b
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC DESCRIBE HISTORY historic_bike_trip_b
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Historic Weather data
+# MAGIC ##### historic_weather_b - bronze
+
+# COMMAND ----------
+
+weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, humidity INTEGER, dew_point DOUBLE, uvi DOUBLE, clouds INTEGER, visibility INTEGER, wind_speed DOUBLE, wind_deg INTEGER, pop DOUBLE, snow_1h DOUBLE, id INTEGER, main STRING, description STRING, icon STRING, loc STRING, lat DOUBLE, lon DOUBLE, timezone STRING, timezone_offset INTEGER, rain_1h DOUBLE"
+
+# COMMAND ----------
+
+(spark.readStream
+ .format("cloudFiles")
+ .option("cloudFiles.format", "csv")
+ .option("cloudFiles.schemaHints", weather_schema)
+ .option("cloudFiles.schemaLocation", f"{GROUP_DATA_PATH}/bronze/historic_weather")
+ .option("header", "True")
+ .load("dbfs:/FileStore/tables/raw/weather/")
+ .withColumn("time", col("dt").cast("timestamp"))
+ .writeStream
+ .format("delta")
+ .option("checkpointLocation", f"{GROUP_DATA_PATH}/bronze/historic_weather")
+ .outputMode("append")
+ .table("historic_weather_b")
+)
+
+
+
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM historic_weather_b
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Bronze Station Info
 
 # COMMAND ----------
 
 # DBTITLE 1,Display Bike Station Information
-display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == "8 Ave & W 33 St"))
+# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
+display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH)
 
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##### Bronze Station Status
 
 # COMMAND ----------
 
@@ -38,6 +129,11 @@ statusDf = spark.read.format('delta').load(BRONZE_STATION_STATUS_PATH).filter(co
 statusDf = statusDf.withColumn( "last_reported", col("last_reported").cast("timestamp")).sort(col("last_reported").desc())
 display(statusDf)
 
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC ### Bronze NYC Weather
 
 # COMMAND ----------
 

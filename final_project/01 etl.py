@@ -16,5 +16,5 @@ print("YOUR CODE HERE...")
 import json
 
 # Return Success
-dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+dbutils.notebook.exit(json.dumps({"exit_code": "OKkkkkkkkkkkkkkkkkkkkkkkk"}))
 # comment

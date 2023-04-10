@@ -28,10 +28,6 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-GROUP_DB_NAME
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Historic Bike data 
 # MAGIC ##### historic_bike_trip_b - bronze
@@ -39,7 +35,6 @@ GROUP_DB_NAME
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col
 
 bike_schema = "ride_id STRING, rideable_type STRING, started_at TIMESTAMP, ended_at TIMESTAMP, start_station_name STRING, start_station_id STRING, end_station_name STRING, end_station_id STRING, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE, member_casual STRING"
 
@@ -89,7 +84,7 @@ weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, 
  .option("cloudFiles.schemaHints", weather_schema)
  .option("cloudFiles.schemaLocation", f"{GROUP_DATA_PATH}/bronze/historic_weather")
  .option("header", "True")
- .load("dbfs:/FileStore/tables/raw/weather/")
+ .load(NYC_WEATHER_FILE_PATH)
  .withColumn("time", col("dt").cast("timestamp"))
  .writeStream
  .format("delta")
@@ -114,8 +109,8 @@ weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, 
 # COMMAND ----------
 
 # DBTITLE 1,Display Bike Station Information
-# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
-display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH)
+display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
+# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH))
 
 # COMMAND ----------
 
@@ -125,8 +120,9 @@ display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH)
 # COMMAND ----------
 
 # DBTITLE 1,Display the Bike Station Status Information
-statusDf = spark.read.format('delta').load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c")
-statusDf = statusDf.withColumn( "last_reported", col("last_reported").cast("timestamp")).sort(col("last_reported").desc())
+# statusDf = spark.read.format('delta').load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c")
+# statusDf = statusDf.withColumn( "last_reported", col("last_reported").cast("timestamp")).sort(col("last_reported").desc())
+statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH)
 display(statusDf)
 
 

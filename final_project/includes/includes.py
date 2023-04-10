@@ -41,7 +41,7 @@ GROUPS_STATION_ASSIGNMENT = {'G01':'W 21 St & 6 Ave',
 # COMMAND ----------
 
 # DBTITLE 1,Define Project Global Variables
-NYC_WEATHER_FILE_PATH = 'dbfs:/FileStore/tables/raw/weather/NYC_Weather_Data.csv'
+NYC_WEATHER_FILE_PATH = 'dbfs:/FileStore/tables/raw/weather/'
 BIKE_TRIP_DATA_PATH = 'dbfs:/FileStore/tables/raw/bike_trips/'
 
 BRONZE_STATION_INFO_PATH = 'dbfs:/FileStore/tables/bronze_station_info.delta'

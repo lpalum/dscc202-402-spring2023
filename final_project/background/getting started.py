@@ -14,9 +14,17 @@ display(bdf)
 
 # COMMAND ----------
 
+bdf.printSchema()
+
+# COMMAND ----------
+
 # DBTITLE 1,Display Historic Weather Data
-wdf=spark.read.format('csv').option("header","True").option("inferSchema","True").load(NYC_WEATHER_FILE_PATH)
+wdf=spark.read.format('csv').option("header","True").option("inferSchema","True").load(NYC_WEATHER_FILE_PATH+'NYC_Weather_Data.csv')
 display(wdf)
+
+# COMMAND ----------
+
+wdf.printSchema()
 
 # COMMAND ----------
 

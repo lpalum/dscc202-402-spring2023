@@ -33,9 +33,23 @@ display(historic_trip_data_df)
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col
 historic_trip_df = historic_trip_data_df.filter("start_station_name == 'Cleveland Pl & Spring St'")
 display(historic_trip_df)
+
+# COMMAND ----------
+
+historic_trip_checkpoint_path = f"dbfs:/FileStore/tables/G11/"
+historic_trip_output_path = f"dbfs:/FileStore/tables/G11/"
+historic_trip_query = (historic_trip_df.writeStream
+                      .outputMode("append")
+                      .format("delta")
+                      .queryName("historic_trip")
+                      .option("checkpointLocation", historic_trip_checkpoint_path)
+                      .start(historic_trip_output_path))
+
+# COMMAND ----------
+
+# MAGIC %fs ls dbfs:/FileStore/tables/G11/
 
 # COMMAND ----------
 

@@ -20,8 +20,4 @@ dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
 
 # COMMAND ----------
 
-historic_trip_data_df
-
-# COMMAND ----------
-
 

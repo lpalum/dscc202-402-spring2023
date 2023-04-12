@@ -12,6 +12,7 @@ promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower(
 print(start_date,end_date,hours_to_forecast, promote_model)
 print("YOUR CODE HERE...")
 
+
 # COMMAND ----------
 
 import json
@@ -27,16 +28,15 @@ historic_trip_data_df = (spark.readStream
                          .option("header", True)
                          .csv(BIKE_TRIP_DATA_PATH))
 
+
 # COMMAND ----------
 
 display(historic_trip_data_df)
 
 # COMMAND ----------
 
-historic_trip_df = historic_trip_data_df.filter("start_station_name == 'Cleveland Pl & Spring St'")
-display(historic_trip_df)
 
-# COMMAND ----------
+from pyspark.sql.functions import col
 
 historic_trip_checkpoint_path = f"dbfs:/FileStore/tables/G11/"
 historic_trip_output_path = f"dbfs:/FileStore/tables/G11/"
@@ -47,11 +47,6 @@ historic_trip_query = (historic_trip_df.writeStream
                       .option("checkpointLocation", historic_trip_checkpoint_path)
                       .start(historic_trip_output_path))
 
-# COMMAND ----------
-
-# MAGIC %fs ls dbfs:/FileStore/tables/G11/
-
-# COMMAND ----------
 
 bronze_station_status_df = (spark.readStream
                            .format("delta")

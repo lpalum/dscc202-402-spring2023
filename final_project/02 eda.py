@@ -28,7 +28,3 @@ df = (spark.readStream
 # COMMAND ----------
 
 display(df)
-
-# COMMAND ----------
-
-

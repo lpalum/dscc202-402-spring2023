@@ -17,3 +17,18 @@ import json
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+
+# COMMAND ----------
+
+
+df = (spark.readStream
+     .format("delta")
+     .load(GROUP_DATA_PATH))
+
+# COMMAND ----------
+
+display(df)
+
+# COMMAND ----------
+
+

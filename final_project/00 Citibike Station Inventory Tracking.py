@@ -3,6 +3,10 @@ print("Hello World")
 
 # COMMAND ----------
 
+print('H')
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ##DSCC 202 - 402 Final Project Spring 2023
 # MAGIC <p>

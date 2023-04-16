@@ -20,14 +20,25 @@ dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
 
 # COMMAND ----------
 
-
-df = (spark.readStream
+#Reading stream for historic trip data bronze
+historic_trip_data_df = (spark.readStream
      .format("delta")
-     .load(GROUP_DATA_PATH))
+     .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
+historic_trip_data_df.display()
 
 # COMMAND ----------
 
-display(df)
+bronze_station_status_df = (spark.readStream
+                           .format("delta")
+                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
+bronze_station_status_df.display()
+
+# COMMAND ----------
+
+bronze_station_info_df = (spark.readStream
+                         .format("delta")
+                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
+bronze_station_info_df.display()
 
 # COMMAND ----------
 

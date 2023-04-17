@@ -37,6 +37,7 @@ df1.display()
 
 # COMMAND ----------
 
+
 (df.groupBy(df1.month).count().orderBy(df.month).show()
 
 # COMMAND ----------
@@ -63,4 +64,7 @@ bronze_station_info_df.display()
 
 # COMMAND ----------
 
+
+
+display(df)
 

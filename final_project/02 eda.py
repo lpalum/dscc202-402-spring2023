@@ -40,6 +40,7 @@ historic_weather_df.display()
 
 #Counts how many disctinct descriptions of the weather
 print("Distinct Count: " + str(historic_weather_df.select("description").distinct().count()))
+print("Distinct Count: " + str(historic_weather_df.select("description").distinct().count()))
 
 # COMMAND ----------
 

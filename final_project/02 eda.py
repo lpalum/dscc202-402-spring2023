@@ -26,6 +26,30 @@ historic_trip_data_df = (spark.read
      .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
 historic_trip_data_df.display()
 historic_trip_data_df.printSchema()
+#here we have a bar chart displaying the end spots of the bikes and which spots are most common
+#It is also grouped by if its a member or a casual user
+
+# COMMAND ----------
+
+historic_weather_df = (spark.read
+                      .option("header", True)
+                      .csv(NYC_WEATHER_FILE_PATH))
+historic_weather_df.display()
+
+# COMMAND ----------
+
+#Counts how many disctinct descriptions of the weather
+print("Distinct Count: " + str(historic_weather_df.select("description").distinct().count()))
+
+# COMMAND ----------
+
+#Displays the basic summary of the dataframe this can be used to make decisions
+historic_trip_data_df.describe().show()
+
+# COMMAND ----------
+
+#Displays the basic summary of the dataframe this can be used to make decisions
+historic_weather_df.describe().show()
 
 # COMMAND ----------
 

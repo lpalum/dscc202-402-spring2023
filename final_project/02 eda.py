@@ -37,8 +37,7 @@ df1.display()
 
 # COMMAND ----------
 
-
-(df.groupBy(df1.month).count().orderBy(df.month).show()
+df.groupBy(df1.month).count().orderBy(df.month).show()
 
 # COMMAND ----------
 

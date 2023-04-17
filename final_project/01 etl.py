@@ -3,6 +3,7 @@
 
 # COMMAND ----------
 
+
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
 hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
@@ -22,8 +23,11 @@ import json
 
 # COMMAND ----------
 
+#Initializing stream for historic trip data 
 spark.sql("set spark.sql.streaming.schemaInference=true")
-historic_trip_data_df = (spark.readStream.option("header", True).csv(BIKE_TRIP_DATA_PATH))
+historic_trip_data_df = (spark.readStream
+                         .option("header", True)
+                         .csv(BIKE_TRIP_DATA_PATH))
 
 # COMMAND ----------
 
@@ -31,11 +35,21 @@ display(historic_trip_data_df)
 
 # COMMAND ----------
 
+
+
+#Filters the historic trip data to contain only our assigned station data
+
 historic_trip_df = historic_trip_data_df.filter("start_station_name == 'Cleveland Pl & Spring St'")
 display(historic_trip_df)
 
 
+
 # COMMAND ----------
+
+
+from pyspark.sql.functions import col
+
+#This command writes the stream for the historic trip data in order to read it in the EDA notebook
 
 historic_trip_checkpoint_path = f"dbfs:/FileStore/tables/G11/historic_trip_data_bronze"
 historic_trip_output_path = f"dbfs:/FileStore/tables/G11/historic_trip_data_bronze"
@@ -49,6 +63,9 @@ historic_trip_query = (historic_trip_df.writeStream
 
 # COMMAND ----------
 
+#Initializing stream for bronze station status table
+#STATION_ID = "66db2fd0-0aca-11e7-82f6-3863bb44ef7c"
+
 bronze_station_status_df = (spark.readStream
                            .format("delta")
                            .load(BRONZE_STATION_STATUS_PATH))
@@ -56,10 +73,15 @@ bronze_station_status_df.display()
 
 # COMMAND ----------
 
+
+#Filtering to have only our station
 bronze_station_status_df = bronze_station_status_df.filter("station_id == '66db2fd0-0aca-11e7-82f6-3863bb44ef7c'")
 bronze_station_status_df.display()
 
 # COMMAND ----------
+
+
+#Writing stream for bronze station status
 
 bronze_station_status_path = f"dbfs:/FileStore/tables/G11/bronze_station_status"
 bronze_station_status_checkpoint_path = f"dbfs:/FileStore/tables/G11/bronze_station_status"
@@ -105,8 +127,7 @@ historic_weather_df = (spark.read
                       .csv(NYC_WEATHER_FILE_PATH))
 historic_weather_df.display()
 
-# COMMAND ----------
-
+#Read stream for bronze weather table
 bronze_nyc_weather_df = (spark.readStream
                         .format("delta")
                         .load(BRONZE_NYC_WEATHER_PATH))
@@ -119,13 +140,5 @@ dbfs:/FileStore/tables/G11/bronze_station_infodbutils.fs.mkdirs("dbfs:/FileStore
 
 # COMMAND ----------
 
-MAGIC %fs ls dbfs:/FileStore/tables/G
-
-
-# COMMAND ----------
-
-display(dbutils.fs.ls("dbfs:/FileStore/tables/G11"))
-
-# COMMAND ----------
 
 

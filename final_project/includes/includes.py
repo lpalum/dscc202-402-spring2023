@@ -14,7 +14,7 @@ GROUPS = [['G01', 'tcharle3@ur.rochester.edu', 'jbrehm@ur.rochester.edu', 'ccoll
 ['G05', 'rkandoi@ur.rochester.edu', 'amath12@ur.rochester.edu', 'ryadav3@ur.rochester.edu', None, None],
 ['G06', 'achilla@ur.rochester.edu', 'nkorrapo@ur.rochester.edu', 'dmunot@ur.rochester.edu', 'apalit@ur.rochester.edu', 'sgarg11@ur.rochester.edu'],
 ['G07', 'skishor2@ur.rochester.edu', 'ssingh71@ur.rochester.edu', 'sswar@ur.rochester.edu', 'dgarg@ur.rochester.edu', 'stamhane@ur.rochester.edu'],
-['G08', 'ikaplan4@u.rochester.edu', 'mkingsl6@u.rochester.edu', 'agolli@u.rochester.edu', 'nboonin@u.rochester.edu ', None],
+['G08', 'ikaplan4@u.rochester.edu', 'mkingsl6@u.rochester.edu', 'agolli@u.rochester.edu', 'nboonin@u.rochester.edu', None],
 ['G09', 'jchen134@u.rochester.edu', 'qtang5@u.rochester.edu', 'jyon@u.rochester.edu', 'cmiao3@u.rochester.edu', 'zwang154@u.rochester.edu'],
 ['G10', 'zgu12@ur.rochester.edu', 'tluo9@ur.rochester.edu', 'dyu18@ur.rochester.edu', 'jcrosset@ur.rochester.edu', 'klee109@u.rochester.edu'],
 ['G11', 'vchistay@u.rochester.edu', 'fcolombo@u.rochester.edu', 'agirsky@u.rochester.edu', 'ajaweed@ur.rochester.edu', 'jtschopp@u.rochester.edu'],
@@ -100,12 +100,11 @@ displayHTML(f"""
 
 # COMMAND ----------
 
-spark.sql("set spark.sql.streaming.schemaInference=true")
-historic_trip_data_df = (spark.readStream.option("header", True).csv(BIKE_TRIP_DATA_PATH))
+
 
 # COMMAND ----------
 
-display(historic_trip_data_df)
+
 
 # COMMAND ----------
 

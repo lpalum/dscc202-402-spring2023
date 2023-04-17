@@ -29,6 +29,13 @@ historic_trip_data_df.printSchema()
 
 # COMMAND ----------
 
+historic_weather_df = (spark.read
+                      .option("header", True)
+                      .csv(NYC_WEATHER_FILE_PATH))
+historic_weather_df.display()
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 df = (historic_trip_data_df.withColumn("month", month("started_at")))
 df1 = (df.select("month", "rideable_type"))

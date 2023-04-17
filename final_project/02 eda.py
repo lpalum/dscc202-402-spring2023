@@ -20,11 +20,51 @@ dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
 
 # COMMAND ----------
 
-
-df = (spark.readStream
+#Reading stream for historic trip data bronze
+historic_trip_data_df = (spark.read
      .format("delta")
-     .load(GROUP_DATA_PATH))
+     .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
+historic_trip_data_df.display()
+historic_trip_data_df.printSchema()
 
 # COMMAND ----------
 
+from pyspark.sql.functions import *
+df = (historic_trip_data_df.withColumn("month", month("started_at")))
+df1 = (df.select("month", "rideable_type"))
+df1.display()
+
+
+# COMMAND ----------
+
+
+(df.groupBy(df1.month).count().orderBy(df.month).show()
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+()()bronze_station_status_df = (spark.readStream
+                           .format("delta")
+                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
+bronze_station_status_df.display()
+
+# COMMAND ----------
+
+bronze_station_info_df = (spark.readStream
+                         .format("delta")
+                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
+bronze_station_info_df.display()
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+
+
 display(df)
+

@@ -54,6 +54,10 @@ historic_weather_df.describe().show()
 
 # COMMAND ----------
 
+historic_trip_data_df
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 df = (historic_trip_data_df.withColumn("month", month("started_at")))
 df1 = (df.select("month", "rideable_type"))
@@ -66,7 +70,22 @@ df.groupBy(df1.month).count().orderBy(df.month).show()
 
 # COMMAND ----------
 
+pip install -U pandas-profiling
 
+# COMMAND ----------
+
+#setting up the pandas profiling
+import pandas_profiling
+import pandas as pd
+from pandas_profiling.utils.cache import cache_file
+
+
+trip_prof = historic_trip_data_df.select("*").toPandas()
+
+# COMMAND ----------
+
+profile = pandas_profiling.ProfileReport(trip_prof)
+profile
 
 # COMMAND ----------
 

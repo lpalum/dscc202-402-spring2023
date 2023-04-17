@@ -100,12 +100,11 @@ displayHTML(f"""
 
 # COMMAND ----------
 
-spark.sql("set spark.sql.streaming.schemaInference=true")
-historic_trip_data_df = (spark.readStream.option("header", True).csv(BIKE_TRIP_DATA_PATH))
+
 
 # COMMAND ----------
 
-display(historic_trip_data_df)
+
 
 # COMMAND ----------
 

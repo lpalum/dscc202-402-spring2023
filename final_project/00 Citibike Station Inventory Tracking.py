@@ -14,7 +14,7 @@ import json
 
 dbutils.widgets.removeAll()
 
-dbutils.widgets.text('01.start_date', "2021-10-01")
+dbutils.widgets.text('01.start_date', "2022-10-01")
 dbutils.widgets.text('02.end_date', "2023-03-01")
 dbutils.widgets.text('03.hours_to_forecast', '4')
 dbutils.widgets.text('04.promote_model', 'No')

@@ -19,11 +19,6 @@ print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC DESCRIBE SCHEMA G10_db
-
-# COMMAND ----------
-
 spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
@@ -35,6 +30,10 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # MAGIC %sql
 # MAGIC SHOW TABLES
+
+# COMMAND ----------
+
+# dbutils.fs.rm(GROUP_DATA_PATH, recurse = True)
 
 # COMMAND ----------
 
@@ -50,26 +49,32 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-bike_schema = "started_at TIMESTAMP, ended_at TIMESTAMP, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE"
-bike_checkPoint = f"{GROUP_DATA_PATH}bronze/historic_bike/_checkpoint/"
-
+bronze_bike_schema = "started_at TIMESTAMP, ended_at TIMESTAMP, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE"
+bronze_bike_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_bike.checkpoint"
+bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 
 # COMMAND ----------
 
 (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format" , "csv")
-    .option("cloudFiles.schemaHints", bike_schema)
-    .option("cloudFiles.schemaLocation", bike_checkPoint)
+    .option("cloudFiles.schemaHints", bronze_bike_schema)
+    .option("cloudFiles.schemaLocation", bronze_bike_checkPoint)
     .option("header", "True")
     .load(BIKE_TRIP_DATA_PATH)
     .filter((col("start_station_name") == GROUP_STATION_ASSIGNMENT) | (col("end_station_name") == GROUP_STATION_ASSIGNMENT))
     .writeStream
     .format("delta")
-    .option("checkpointLocation", bike_checkPoint)
+    .option("checkpointLocation", bronze_bike_checkPoint)
     .outputMode("append")
-    .table("historic_bike_trip_b")
+    .start(bronze_bike_delta)
 )
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE historic_bike_trip_b AS 
+# MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_bike.delta`
 
 # COMMAND ----------
 
@@ -84,25 +89,25 @@ bike_checkPoint = f"{GROUP_DATA_PATH}bronze/historic_bike/_checkpoint/"
 
 # COMMAND ----------
 
-weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, humidity INTEGER, dew_point DOUBLE, uvi DOUBLE, clouds INTEGER, visibility INTEGER, wind_speed DOUBLE, wind_deg INTEGER, pop DOUBLE, snow_1h DOUBLE, id INTEGER, main STRING, description STRING, icon STRING, loc STRING, lat DOUBLE, lon DOUBLE, timezone STRING, timezone_offset INTEGER, rain_1h DOUBLE"
-weather_checkPoint = f"{GROUP_DATA_PATH}bronze/historic_weather/_checkpoint/"
-
+bronze_weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, humidity INTEGER, dew_point DOUBLE, uvi DOUBLE, clouds INTEGER, visibility INTEGER, wind_speed DOUBLE, wind_deg INTEGER, pop DOUBLE, snow_1h DOUBLE, id INTEGER, main STRING, description STRING, icon STRING, loc STRING, lat DOUBLE, lon DOUBLE, timezone STRING, timezone_offset INTEGER, rain_1h DOUBLE"
+bronze_weather_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_weather.checkpoint"
+bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 
 # COMMAND ----------
 
 (spark.readStream
  .format("cloudFiles")
  .option("cloudFiles.format", "csv")
- .option("cloudFiles.schemaHints", weather_schema)
- .option("cloudFiles.schemaLocation",weather_checkPoint)
+ .option("cloudFiles.schemaHints", bronze_weather_schema)
+ .option("cloudFiles.schemaLocation", bronze_weather_checkPoint)
  .option("header", "True")
  .load(NYC_WEATHER_FILE_PATH)
  .withColumn("time", col("dt").cast("timestamp"))
  .writeStream
  .format("delta")
- .option("checkpointLocation", weather_checkPoint)
+ .option("checkpointLocation", bronze_weather_checkPoint)
  .outputMode("append")
- .table("historic_weather_b")
+ .start(bronze_weather_delta)
 )
 
 
@@ -111,16 +116,13 @@ weather_checkPoint = f"{GROUP_DATA_PATH}bronze/historic_weather/_checkpoint/"
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM historic_weather_b
+# MAGIC CREATE OR REPLACE TABLE historic_weather_b AS 
+# MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_weather.delta`
 
 # COMMAND ----------
 
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}_schemas", recurse = True )
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}commits", recurse = True)
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}metadata", recurse = True)
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}offsets", recurse = True)
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}sources", recurse = True)
-# dbutils.fs.rm(f"{BIKE_TRIP_DATA_PATH}checkpoint", recurse = True )
+# MAGIC %sql
+# MAGIC SELECT * FROM historic_weather_b
 
 # COMMAND ----------
 

@@ -30,9 +30,10 @@ import requests
 
 historic_trip_data_df = (spark.read
      .format("delta")
-     .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
+     .load("dbfs:/FileStore/tables/G11/bronze/historic_trip_data/"))
 historic_trip_data_df.display()
 historic_trip_data_df.printSchema()
+historic_trip_data_df.count()
 
 
 # COMMAND ----------

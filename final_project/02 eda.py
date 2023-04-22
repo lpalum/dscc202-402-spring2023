@@ -33,10 +33,13 @@ from pandas_profiling.utils.cache import cache_file
 
 # COMMAND ----------
 
-# DBTITLE 1,historic_trip_data
-historic_trip_data = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
-historic_trip_data.display()
-historic_trip_data.printSchema()
+
+historic_trip_data_df = (spark.read
+     .format("delta")
+     .load("dbfs:/FileStore/tables/G11/bronze/historic_trip_data/"))
+historic_trip_data_df.display()
+historic_trip_data_df.printSchema()
+historic_trip_data_df.count()
 
 
 # COMMAND ----------

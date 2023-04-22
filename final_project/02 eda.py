@@ -1,4 +1,8 @@
 # Databricks notebook source
+# MAGIC %run ./includes/includes
+
+# COMMAND ----------
+
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
 hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
@@ -9,24 +13,26 @@ print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
-# MAGIC %run ./includes/includes
+pip install -U pandas-profiling
 
 # COMMAND ----------
 
-import json
-
-# Return Success
-#dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
-
-# COMMAND ----------
-
+# DBTITLE 1,Imports
 from pathlib import Path
+from pyspark.sql.functions import *
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 import numpy as np
 import requests
 
+import pandas_profiling
+import pandas as pd
+from pandas_profiling.utils.cache import cache_file
 
 # COMMAND ----------
+
 
 historic_trip_data_df = (spark.read
      .format("delta")
@@ -39,7 +45,7 @@ historic_trip_data_df.count()
 # COMMAND ----------
 
 from pyspark.sql.functions import *
-df = (historic_trip_data_df.withColumn("month", month("started_at")))
+df = (historic_trip_data.withColumn("month", month("started_at")))
 df1 = (df.select("month", "rideable_type"))
 df1.display()
 
@@ -49,181 +55,67 @@ df.groupBy(df1.month).count().orderBy(df.month).show()
 
 # COMMAND ----------
 
-bronze_station_status_df = (spark.readStream
-                           .format("delta")
-                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
-bronze_station_status_df.display()
+historic_trip_data_df = historic_trip_data.select("*").toPandas()
+historic_trip_data_df['started_at']= pd.to_datetime(historic_trip_data_df['started_at'])
+historic_trip_data_df['ended_at']= pd.to_datetime(historic_trip_data_df['ended_at'])
+
+historic_trip_data_profile = pandas_profiling.ProfileReport(historic_trip_data_df)
+historic_trip_data_profile
 
 # COMMAND ----------
 
-pip install -U pandas-profiling
+# DBTITLE 1,bronze_station_status
+bronze_station_status = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_status"))
+bronze_station_status.display()
 
 # COMMAND ----------
 
-bronze_station_info_df = (spark.readStream
-                         .format("delta")
-                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
-bronze_station_info_df.display()
+bronze_station_status_df = bronze_station_status.select("*").toPandas()
+bronze_station_status_profile = pandas_profiling.ProfileReport(bronze_station_status_df)
+bronze_station_status_profile
 
 # COMMAND ----------
 
-#For historic_trip_data_df
-
-import pandas_profiling
-import pandas as pd
-from pandas_profiling.utils.cache import cache_file
-
-historic_trip_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
-
-df = historic_trip_data_df.select("*").toPandas()
-
+# DBTITLE 1,bronze_station_info
+bronze_station_info = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_info"))
+bronze_station_info.display()
 
 # COMMAND ----------
 
-profile = pandas_profiling.ProfileReport(df)
-profile
+bronze_station_info_df = bronze_station_info.select("*").toPandas()
+bronze_station_info_profile = pandas_profiling.ProfileReport(bronze_station_info_df)
+bronze_station_info_profile
 
 # COMMAND ----------
 
-#For bronze_station_status_df
-
-import pandas_profiling
-import pandas as pd
-from pandas_profiling.utils.cache import cache_file
-
-bronze_station_status_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_status"))
-df = bronze_station_status_df.select("*").toPandas()
-
-# COMMAND ----------
-
-profile = pandas_profiling.ProfileReport(df)
-profile
-
-# COMMAND ----------
-
-import pandas_profiling
-import pandas as pd
-from pandas_profiling.utils.cache import cache_file
-
-bronze_station_info_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_info"))
-
-df = bronze_station_info_df.select("*").toPandas()
-
-
-# COMMAND ----------
-
-profile = pandas_profiling.ProfileReport(df)
-profile
-
-# COMMAND ----------
-
-historic_weather_df = (spark.readStream.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather"))
-historic_weather_df.display()
-
-historic_weather_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather"))
-historic_weather_df.display()
-historic_weather_df.printSchema()
-
-
-# COMMAND ----------
-
-import pandas_profiling
-import pandas as pd
-from pandas_profiling.utils.cache import cache_file
-
-historic_weather_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather_df"))
-df = historic_weather_data_df.select("*").toPandas()
-
-# COMMAND ----------
-
-#Reading stream for historic trip data bronze
-historic_trip_data_df = (spark.read
-     .format("delta")
-     .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
-historic_trip_data_df.display()
-historic_trip_data_df.printSchema()
-#here we have a bar chart displaying the end spots of the bikes and which spots are most common
-#It is also grouped by if its a member or a casual user
-
-# COMMAND ----------
-
-historic_weather_df = (spark.read
-                      .option("header", True)
-                      .csv(NYC_WEATHER_FILE_PATH))
-historic_weather_df.display()
+# DBTITLE 1,historic_weather
+historic_weather = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather_df"))
+historic_weather.display()
 
 # COMMAND ----------
 
 #Counts how many disctinct descriptions of the weather
-print("Distinct Count: " + str(historic_weather_df.select("description").distinct().count()))
-print("Distinct Count: " + str(historic_weather_df.select("description").distinct().count()))
+print("Distinct Count: " + str(historic_weather.select("description").distinct().count()))
+print("Distinct Count: " + str(historic_weather.select("description").distinct().count()))
 
 # COMMAND ----------
 
-#Displays the basic summary of the dataframe this can be used to make decisions
-historic_trip_data_df.describe().show()
+historic_weather_df = historic_weather.select("*").toPandas()
+historic_weather_profile = pandas_profiling.ProfileReport(historic_weather_df)
+historic_weather_profile
 
 # COMMAND ----------
 
-#Displays the basic summary of the dataframe this can be used to make decisions
-historic_weather_df.describe().show()
-
-# COMMAND ----------
-
-historic_trip_data_df
-
-# COMMAND ----------
-
-from pyspark.sql.functions import *
-df = (historic_trip_data_df.withColumn("month", month("started_at")))
-df1 = (df.select("month", "rideable_type"))
-df1.display()
+# DBTITLE 1,More in depth EDA
 
 
 # COMMAND ----------
 
-df.groupBy(df1.month).count().orderBy(df.month).show()
+import json
+
+# Return Success
+dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
 
 # COMMAND ----------
 
-pip install -U pandas-profiling
-
-# COMMAND ----------
-
-#setting up the pandas profiling
-import pandas_profiling
-import pandas as pd
-from pandas_profiling.utils.cache import cache_file
-
-
-trip_prof = historic_trip_data_df.select("*").toPandas()
-
-# COMMAND ----------
-
-profile = pandas_profiling.ProfileReport(trip_prof)
-profile
-
-# COMMAND ----------
-
-()()bronze_station_status_df = (spark.readStream
-                           .format("delta")
-                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
-bronze_station_status_df.display()
-
-# COMMAND ----------
-
-bronze_station_info_df = (spark.readStream
-                         .format("delta")
-                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
-bronze_station_info_df.display()
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-
-
-display(df)
 

@@ -33,6 +33,10 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ### Historic Bike data 
 # MAGIC ##### historic_bike_trip_b - bronze
@@ -42,6 +46,10 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 
 # bike_schema = "ride_id STRING, rideable_type STRING, started_at TIMESTAMP, ended_at TIMESTAMP, start_station_name STRING, start_station_id STRING, end_station_name STRING, end_station_id STRING, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE, member_casual STRING"
+
+# COMMAND ----------
+
+display(dbutils.fs.ls(GROUP_DATA_PATH))
 
 # COMMAND ----------
 
@@ -58,13 +66,15 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
     .option("cloudFiles.schemaLocation", bronze_bike_checkPoint)
     .option("header", "True")
     .load(BIKE_TRIP_DATA_PATH)
+    .filter(~((col("start_station_name") == GROUP_STATION_ASSIGNMENT) & (col("end_station_name") == GROUP_STATION_ASSIGNMENT)))
     .filter((col("start_station_name") == GROUP_STATION_ASSIGNMENT) | (col("end_station_name") == GROUP_STATION_ASSIGNMENT))
     .writeStream
     .format("delta")
     .option("checkpointLocation", bronze_bike_checkPoint)
-    .trigger(availableNow = True)
+    .trigger(once = True)
     .outputMode("append")
     .start(bronze_bike_delta)
+    .awaitTermination()
 )
 
 # COMMAND ----------
@@ -101,6 +111,7 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
  .trigger(availableNow = True)
  .outputMode("append")
  .start(bronze_weather_delta)
+ .awaitTermination()
 )
 
 
@@ -111,11 +122,6 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE historic_weather_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_weather.delta`
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC DESCRIBE HISTORY historic_weather_b
 
 # COMMAND ----------
 
@@ -230,17 +236,13 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE bike_weather_netChange_s AS 
+# MAGIC CREATE OR REPLACE TABLE train_bike_weather_netChange_s AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/silver_historic_bike_weather.delta/`
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM bike_weather_netChange_s
-
-# COMMAND ----------
-
-
+# MAGIC SELECT * FROM train_bike_weather_netChange_s
 
 # COMMAND ----------
 

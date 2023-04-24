@@ -33,10 +33,6 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-# dbutils.fs.rm(GROUP_DATA_PATH, recurse = True)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Historic Bike data 
 # MAGIC ##### historic_bike_trip_b - bronze
@@ -76,20 +72,6 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE historic_bike_trip_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_bike.delta`
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC DESCRIBE HISTORY historic_bike_trip_b
-
-# COMMAND ----------
-
-display(dbutils.fs.ls(f"{GROUP_DATA_PATH}bronze_historic_bike.delta"))
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_bike_trip_b
 
 # COMMAND ----------
 
@@ -133,7 +115,7 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM historic_weather_b
+# MAGIC DESCRIBE HISTORY historic_weather_b
 
 # COMMAND ----------
 
@@ -174,10 +156,6 @@ display(spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).sort(col("time"
 
 # MAGIC %md
 # MAGIC # Silver Table
-
-# COMMAND ----------
-
-display(dbutils.fs.ls(GROUP_DATA_PATH))
 
 # COMMAND ----------
 
@@ -241,16 +219,7 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM time_weather_netChange_G10_db 
-
-# COMMAND ----------
-
-# silver_bike_weather_checkPoint = f"{GROUP_DATA_PATH}silver_historic_bike_weather.checkpoint"
-silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta"
-
-# COMMAND ----------
-
+silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta/"
 (spark.table("time_weather_netChange_G10_db")
     .write
     .format("delta")
@@ -260,27 +229,14 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
 
 # COMMAND ----------
 
-display(dbutils.fs.ls(GROUP_DATA_PATH))
-
-# COMMAND ----------
-
 # MAGIC %sql
+# MAGIC CREATE OR REPLACE TABLE bike_weather_netChange_s AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/silver_historic_bike_weather.delta/`
 
 # COMMAND ----------
 
-# (spark.table("time_weather_netChange_G10_db")
-#     .writeStream
-#     .format("delta")
-#     .option("checkpointLocation", silver_bike_weather_checkPoint)
-#     .outputMode("complete")
-#     .trigger(once=True)
-#     .start(silver_bike_weather_delta)
-# )
-
-# COMMAND ----------
-
-
+# MAGIC %sql
+# MAGIC SELECT * FROM bike_weather_netChange_s
 
 # COMMAND ----------
 

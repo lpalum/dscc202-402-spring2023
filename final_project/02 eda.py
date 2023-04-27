@@ -38,20 +38,9 @@ historic_trip_data_df.count()
 
 # COMMAND ----------
 
-from pyspark.sql.functions import *
-df = (historic_trip_data_df.withColumn("month", month("started_at")))
-df1 = (df.select("month", "rideable_type"))
-df1.display()
-
-# COMMAND ----------
-
-df.groupBy(df1.month).count().orderBy(df.month).show()
-
-# COMMAND ----------
-
-bronze_station_status_df = (spark.readStream
+bronze_station_status_df = (spark.read
                            .format("delta")
-                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
+                           .load("dbfs:/FileStore/tables/G11/bronze/station_status"))
 bronze_station_status_df.display()
 
 # COMMAND ----------
@@ -60,9 +49,9 @@ pip install -U pandas-profiling
 
 # COMMAND ----------
 
-bronze_station_info_df = (spark.readStream
+bronze_station_info_df = (spark.read
                          .format("delta")
-                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
+                         .load("dbfs:/FileStore/tables/G11/bronze/station_info"))
 bronze_station_info_df.display()
 
 # COMMAND ----------
@@ -73,7 +62,7 @@ import pandas_profiling
 import pandas as pd
 from pandas_profiling.utils.cache import cache_file
 
-historic_trip_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
+historic_trip_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze/historic_trip_data"))
 
 df = historic_trip_data_df.select("*").toPandas()
 
@@ -91,7 +80,7 @@ import pandas_profiling
 import pandas as pd
 from pandas_profiling.utils.cache import cache_file
 
-bronze_station_status_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_status"))
+bronze_station_status_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze/station_status"))
 df = bronze_station_status_df.select("*").toPandas()
 
 # COMMAND ----------
@@ -105,7 +94,7 @@ import pandas_profiling
 import pandas as pd
 from pandas_profiling.utils.cache import cache_file
 
-bronze_station_info_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_info"))
+bronze_station_info_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze/station_info"))
 
 df = bronze_station_info_df.select("*").toPandas()
 
@@ -117,10 +106,10 @@ profile
 
 # COMMAND ----------
 
-historic_weather_df = (spark.readStream.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather"))
+historic_weather_df = (spark.readStream.format("delta").load("dbfs:/FileStore/tables/G11/bronze/historic_weather_data"))
 historic_weather_df.display()
 
-historic_weather_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather"))
+historic_weather_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze/historic_weather_data"))
 historic_weather_df.display()
 historic_weather_df.printSchema()
 
@@ -131,7 +120,7 @@ import pandas_profiling
 import pandas as pd
 from pandas_profiling.utils.cache import cache_file
 
-historic_weather_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather_df"))
+historic_weather_data_df = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze/historic_weather_data"))
 df = historic_weather_data_df.select("*").toPandas()
 
 # COMMAND ----------
@@ -139,7 +128,7 @@ df = historic_weather_data_df.select("*").toPandas()
 #Reading stream for historic trip data bronze
 historic_trip_data_df = (spark.read
      .format("delta")
-     .load("dbfs:/FileStore/tables/G11/historic_trip_data_bronze"))
+     .load("dbfs:/FileStore/tables/G11/bronze/historic_trip_data"))
 historic_trip_data_df.display()
 historic_trip_data_df.printSchema()
 #here we have a bar chart displaying the end spots of the bikes and which spots are most common
@@ -202,20 +191,6 @@ trip_prof = historic_trip_data_df.select("*").toPandas()
 
 profile = pandas_profiling.ProfileReport(trip_prof)
 profile
-
-# COMMAND ----------
-
-()()bronze_station_status_df = (spark.readStream
-                           .format("delta")
-                           .load("dbfs:/FileStore/tables/G11/bronze_station_status"))
-bronze_station_status_df.display()
-
-# COMMAND ----------
-
-bronze_station_info_df = (spark.readStream
-                         .format("delta")
-                         .load("dbfs:/FileStore/tables/G11/bronze_station_info"))
-bronze_station_info_df.display()
 
 # COMMAND ----------
 

@@ -33,10 +33,6 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Historic Bike data 
 # MAGIC ##### historic_bike_trip_b - bronze
@@ -122,6 +118,11 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE historic_weather_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_weather.delta`
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM historic_weather_b
 
 # COMMAND ----------
 
@@ -212,7 +213,7 @@ spark.udf.register("isHoliday", isHoliday)
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_netChange_G10_db AS 
-# MAGIC SELECT B.dates, month, dayofweek, B.hour, feels_like, description, isHoliday(year(B.dates), month, day(B.dates)) AS holiday, net_change 
+# MAGIC SELECT B.dates, month, dayofweek, B.hour, feels_like, rain_1h , description, isHoliday(year(B.dates), month, day(B.dates)) AS holiday, net_change 
 # MAGIC FROM time_and_netChange_G10_db AS B 
 # MAGIC LEFT JOIN 
 # MAGIC (SELECT 
@@ -222,6 +223,11 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC FROM historic_weather_b) AS W
 # MAGIC ON B.dates == W.dates AND B.hour == W.hour
 # MAGIC ORDER BY B.dates DESC, B.hour DESC 
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM time_weather_netChange_G10_db
 
 # COMMAND ----------
 

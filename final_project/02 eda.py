@@ -104,6 +104,7 @@ profile
 
 # COMMAND ----------
 
+# DBTITLE 1,bronze_station_status
 import pandas_profiling
 import pandas as pd
 from pandas_profiling.utils.cache import cache_file
@@ -113,7 +114,6 @@ bronze_station_info_df = (spark.read.format("delta").load("dbfs:/FileStore/table
 df = bronze_station_info_df.select("*").toPandas()
 
 
-# DBTITLE 1,bronze_station_status
 bronze_station_status = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/bronze_station_status"))
 bronze_station_status.display()
 
@@ -169,12 +169,12 @@ historic_trip_data_df.printSchema()
 
 # COMMAND ----------
 
+# DBTITLE 1,historic_weather
 historic_weather_df = (spark.read
                       .option("header", True)
                       .csv(NYC_WEATHER_FILE_PATH))
 historic_weather_df.display()
 
-# DBTITLE 1,historic_weather
 historic_weather = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/historic_weather_df"))
 historic_weather.display()
 
@@ -193,8 +193,8 @@ historic_weather_profile
 
 # COMMAND ----------
 
-
 # DBTITLE 1,More in depth EDA
+
 
 
 # COMMAND ----------

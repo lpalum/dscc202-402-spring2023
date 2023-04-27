@@ -15,14 +15,6 @@ print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
-import json
-
-# Return Success
-#dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
-# comment
-
-# COMMAND ----------
-
 #Initializing stream for historic trip data 
 from pyspark.sql.types import LongType, StringType, StructType, StructField, TimestampType, DoubleType
 historic_trip_data_schema = StructType([
@@ -82,13 +74,13 @@ historic_trip_query = (historic_trip_df.writeStream
 bronze_station_status_df = (spark.read
                            .format("delta")
                            .load(BRONZE_STATION_STATUS_PATH))
-bronze_station_status_df.display()
+#bronze_station_status_df.display()
 
 # COMMAND ----------
 
 #Filtering to have only our station
 bronze_station_status_df = bronze_station_status_df.filter("station_id == '66db2fd0-0aca-11e7-82f6-3863bb44ef7c'")
-bronze_station_status_df.display()
+#bronze_station_status_df.display()
 
 # COMMAND ----------
 
@@ -111,12 +103,12 @@ bronze_station_status_query = (bronze_station_status_df.write
 bronze_station_info_df = (spark.read
                            .format("delta")
                            .load(BRONZE_STATION_INFO_PATH))
-bronze_station_info_df.display()
+#bronze_station_info_df.display()
 
 # COMMAND ----------
 
 bronze_station_info_df = bronze_station_info_df.filter("short_name == '5492.05'")
-bronze_station_info_df.display()
+#bronze_station_info_df.display()
 
 # COMMAND ----------
 
@@ -165,7 +157,7 @@ historic_weather_df = (spark.readStream
                       .option("header", True)
                       .schema(historic_weather_schema)
                       .csv(NYC_WEATHER_FILE_PATH))
-historic_weather_df.display()
+#historic_weather_df.display()
 
 # COMMAND ----------
 
@@ -192,7 +184,7 @@ historic_weather_query = (historic_weather_df.writeStream
 bronze_nyc_weather_df = (spark.read
                         .format("delta")
                         .load(BRONZE_NYC_WEATHER_PATH))
-bronze_nyc_weather_df.display()
+#bronze_nyc_weather_df.display()
 
 # COMMAND ----------
 
@@ -203,7 +195,7 @@ df = (weather_exploded_df.withColumn("description", col("weather.description"))
      .withColumn("id", col("weather.id"))
      .withColumn("main", col("weather.main")))
 df = df.drop("weather")
-display(df)
+#display(df)
 
 # COMMAND ----------
 
@@ -236,7 +228,7 @@ historic_trip_silver = historic_trip_silver.withColumn("ended_at", date_format(c
 
 # COMMAND ----------
 
-historic_trip_silver.display()
+#historic_trip_silver.display()
 
 # COMMAND ----------
 
@@ -245,6 +237,11 @@ silver_historic_trip_query = (historic_trip_silver.write
     .format("delta")
     .mode("overwrite")
     .save(silver_historic_trip_path))
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/historic_trip_data'
 
 # COMMAND ----------
 
@@ -266,13 +263,100 @@ silver_historic_weather = silver_historic_weather.select(
     'rain_1h'
 )
 
+silver_historic_weather_path = f"dbfs:/FileStore/tables/G11/silver/historic_weather_data/"
+silver_historic_weather_query = (silver_historic_weather.write
+    .format("delta")
+    .mode("overwrite")
+    .save(silver_historic_weather_path))
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/historic_weather_data'
+
 # COMMAND ----------
 
 silver_historic_weather.display()
 
 # COMMAND ----------
 
-dbutils.fs.mkdirs("dbfs:/FileStore/tables/G11/silver/historic_trip_data/")
+silver_station_info = (spark.read
+    .format("delta")
+    .load(bronze_station_info_path))
+
+silver_station_info = silver_station_info.select(
+    'capacity'
+)
+
+silver_station_info_path = f"dbfs:/FileStore/tables/G11/silver/station_info/"
+silver_station_info_query = (silver_station_info.write
+    .format("delta")
+    .mode("overwrite")
+    .save(silver_station_info_path))
+
+# COMMAND ----------
+
+#silver_station_info.display()
+
+# COMMAND ----------
+
+silver_station_status = (spark.read
+    .format("delta")
+    .load(bronze_station_status_path))
+
+silver_station_status = silver_station_status.withColumn("last_reported", date_format(from_unixtime(col("last_reported").cast("long")), "yyyy-MM-dd HH:mm:ss"))
+
+silver_station_status = silver_station_status.select(
+    'num_bikes_available',
+    'num_bikes_disabled',
+    'num_docks_available',
+    'last_reported',
+    'num_docks_disabled'
+)
+
+silver_station_status_path = f"dbfs:/FileStore/tables/G11/silver/station_status/"
+silver_station_status_query = (silver_station_status.write
+    .format("delta")
+    .mode("overwrite")
+    .save(silver_station_status_path))
+
+# COMMAND ----------
+
+#silver_station_status.display()
+
+# COMMAND ----------
+
+silver_weather = (spark.read
+    .format("delta")
+    .load(bronze_weather_path))
+
+silver_weather = (silver_weather.withColumn("dt", date_format(from_unixtime(col("dt").cast("long")), "yyyy-MM-dd HH:mm:ss"))
+    .withColumn("temp", round((col("temp") - 273.15), 2))
+    .withColumn("feels_like", round((col("feels_like") - 273.15), 2))
+    .withColumnRenamed("rain.1h", "rain_1h")
+)
+
+silver_weather = silver_weather.select(
+    'dt',
+    'temp',
+    'feels_like',
+    'main',
+    'rain_1h'
+)
+
+silver_weather_path = f"dbfs:/FileStore/tables/G11/silver/weather/"
+silver_weather_query = (silver_weather.write
+.format("delta")
+.mode("overwrite")
+.save(silver_weather_path))
+
+# COMMAND ----------
+
+#silver_weather.display()
+
+# COMMAND ----------
+
+#dbutils.fs.mkdirs("dbfs:/FileStore/tables/G11/silver/historic_weather_data/")
 
 # COMMAND ----------
 
@@ -284,4 +368,8 @@ dbutils.fs.mkdirs("dbfs:/FileStore/tables/G11/silver/historic_trip_data/")
 
 # COMMAND ----------
 
+import json
 
+# Return Success
+dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+# comment

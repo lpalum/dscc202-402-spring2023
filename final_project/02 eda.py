@@ -53,6 +53,38 @@ bronze_station_status_df.display()
 
 # COMMAND ----------
 
+from pyspark.sql.functions import *
+df2 = (historic_trip_data.withColumn("day", dayofyear("started_at")))
+df3 = (df2.select("day", "rideable_type"))
+df3.display()
+
+# COMMAND ----------
+
+df4 = df2.groupBy(df3.day).count().orderBy(df2.day).show()
+
+# COMMAND ----------
+
+pip install holidays
+
+# COMMAND ----------
+
+
+from datetime import date
+import holidays
+from pyspark.sql.functions import *
+
+us_holidays = holidays.US()
+
+for p in holidays.US(years = 2020).items():  
+    print(p) 
+
+hol = (historic_trip_data.withColumn("holiday", ("started_at")))
+#hol1 = (hol.select("day", "rideable_type"))
+#hol1.display()
+
+
+# COMMAND ----------
+
 historic_trip_data_df = historic_trip_data.select("*").toPandas()
 historic_trip_data_df['started_at']= pd.to_datetime(historic_trip_data_df['started_at'])
 historic_trip_data_df['ended_at']= pd.to_datetime(historic_trip_data_df['ended_at'])

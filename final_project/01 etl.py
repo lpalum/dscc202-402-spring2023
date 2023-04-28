@@ -127,7 +127,6 @@ bronze_station_info_query = (bronze_station_info_df.write
 
 #Read in historic weather
 from pyspark.sql.types import LongType, StringType, StructType, StructField, TimestampType, DoubleType, IntegerType
-spark.sql("set spark.sql.streaming.schemaInference=true")
 historic_weather_schema = StructType([
     StructField("dt", LongType(), True),
     StructField("temp", DoubleType(), True),
@@ -228,7 +227,7 @@ historic_trip_silver = historic_trip_silver.withColumn("ended_at", date_format(c
 
 # COMMAND ----------
 
-#historic_trip_silver.display()
+historic_trip_silver.display()
 
 # COMMAND ----------
 
@@ -343,6 +342,7 @@ silver_weather = silver_weather.select(
     'main',
     'rain_1h'
 )
+silver_weather = silver_weather.fillna(value=0)
 
 silver_weather_path = f"dbfs:/FileStore/tables/G11/silver/weather/"
 silver_weather_query = (silver_weather.write
@@ -352,7 +352,36 @@ silver_weather_query = (silver_weather.write
 
 # COMMAND ----------
 
-#silver_weather.display()
+weather = (spark.read
+    .format("delta")
+    .load(silver_historic_weather_path))
+
+trips = (spark.read
+    .format("delta")
+    .load(silver_historic_trip_path))
+
+mod_trips = trips.withColumn("unix", (round(unix_timestamp("started_at")/3600)*3600).cast("timestamp"))
+trips = mod_trips.withColumn("rounded_started_at", date_format(from_unixtime(col("unix").cast("long")), "yyyy-MM-dd HH:mm:ss"))
+
+
+
+joined_df = trips.join(weather, trips.rounded_started_at == weather.dt, "inner")
+
+joined_df = joined_df.drop("unix")
+
+joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
+joined_query = (joined_df.write
+    .format("delta")
+    .mode("overwrite")
+    .save(joined_path))
+
+# COMMAND ----------
+
+joined_df.display()
+
+# COMMAND ----------
+
+silver_weather.display()
 
 # COMMAND ----------
 
@@ -360,7 +389,7 @@ silver_weather_query = (silver_weather.write
 
 # COMMAND ----------
 
-#%fs rm -r dbfs:/FileStore/tables/G11/silver/historic_trip_data/
+# MAGIC %fs rm -r dbfs:/FileStore/tables/G11/silver/joined/
 
 # COMMAND ----------
 

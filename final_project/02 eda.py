@@ -3,13 +3,13 @@
 
 # COMMAND ----------
 
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
+#start_date = str(dbutils.widgets.get('01.start_date'))
+#end_date = str(dbutils.widgets.get('02.end_date'))
+#hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
+#promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
 
-print(start_date,end_date,hours_to_forecast, promote_model)
-print("YOUR CODE HERE...")
+#print(start_date,end_date,hours_to_forecast, promote_model)
+#print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
@@ -54,7 +54,7 @@ bronze_station_status_df.display()
 # COMMAND ----------
 
 from pyspark.sql.functions import *
-df2 = (historic_trip_data.withColumn("day", dayofyear("started_at")))
+df2 = (historic_trip_data_df.withColumn("day", dayofyear("started_at")))
 df3 = (df2.select("day", "rideable_type"))
 df3.display()
 
@@ -72,20 +72,36 @@ pip install holidays
 from datetime import date
 import holidays
 from pyspark.sql.functions import *
+import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar as calendar
 
 us_holidays = holidays.US()
 
 for p in holidays.US(years = 2020).items():  
-    print(p) 
+    print(p)
+     
 
-hol = (historic_trip_data.withColumn("holiday", ("started_at")))
+
+dr = pd.date_range(start='2021-11-02', end='2021-11-30')
+df = pd.DataFrame()
+df['started_at'] = dr
+
+cal = calendar()
+holidays = cal.holidays(start=dr.min(), end=dr.max())
+
+df['Holiday'] = df['started_at'].isin(holidays)
+print (df)
+
+plt.scatter(graph)
+
+#hol = (historic_trip_data_df.withColumn("holiday", ("started_at")))
 #hol1 = (hol.select("day", "rideable_type"))
 #hol1.display()
 
 
 # COMMAND ----------
 
-historic_trip_data_df = historic_trip_data.select("*").toPandas()
+historic_trip_data_df = historic_trip_data_df.select("*").toPandas()
 historic_trip_data_df['started_at']= pd.to_datetime(historic_trip_data_df['started_at'])
 historic_trip_data_df['ended_at']= pd.to_datetime(historic_trip_data_df['ended_at'])
 
@@ -222,12 +238,6 @@ print("Distinct Count: " + str(historic_weather.select("description").distinct()
 historic_weather_df = historic_weather.select("*").toPandas()
 historic_weather_profile = pandas_profiling.ProfileReport(historic_weather_df)
 historic_weather_profile
-
-# COMMAND ----------
-
-# DBTITLE 1,More in depth EDA
-
-
 
 # COMMAND ----------
 

@@ -74,6 +74,7 @@ import holidays
 from pyspark.sql.functions import *
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar as calendar
+import matplotlib.pyplot as plt
 
 us_holidays = holidays.US()
 
@@ -96,6 +97,8 @@ plt.scatter(df['started_at'],df['Holiday'])
 vaca = df[(df["Holiday"] == True)]
 
 print(vaca)
+
+
 
 hol1 = (hol.select("day", "rideable_type"))
 hol1.display()

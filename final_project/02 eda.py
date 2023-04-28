@@ -74,6 +74,7 @@ import holidays
 from pyspark.sql.functions import *
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar as calendar
+import matplotlib.pyplot as plt
 
 us_holidays = holidays.US()
 
@@ -92,7 +93,7 @@ holidays = cal.holidays(start=dr.min(), end=dr.max())
 df['Holiday'] = df['started_at'].isin(holidays)
 print (df)
 
-plt.scatter(graph)
+plt.scatter(df['started_at'], df['Holiday'])
 
 #hol = (historic_trip_data_df.withColumn("holiday", ("started_at")))
 #hol1 = (hol.select("day", "rideable_type"))

@@ -40,11 +40,6 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-
-# bike_schema = "ride_id STRING, rideable_type STRING, started_at TIMESTAMP, ended_at TIMESTAMP, start_station_name STRING, start_station_id STRING, end_station_name STRING, end_station_id STRING, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE, member_casual STRING"
-
-# COMMAND ----------
-
 display(dbutils.fs.ls(GROUP_DATA_PATH))
 
 # COMMAND ----------
@@ -52,6 +47,11 @@ display(dbutils.fs.ls(GROUP_DATA_PATH))
 bronze_bike_schema = "started_at TIMESTAMP, ended_at TIMESTAMP, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE"
 bronze_bike_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_bike.checkpoint"
 bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
+
+# COMMAND ----------
+
+# dbutils.fs.rm(bronze_bike_checkPoint, recurse = True)
+# dbutils.fs.rm(bronze_bike_delta, recurse = True)
 
 # COMMAND ----------
 
@@ -64,9 +64,11 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
     .load(BIKE_TRIP_DATA_PATH)
     .filter(~((col("start_station_name") == GROUP_STATION_ASSIGNMENT) & (col("end_station_name") == GROUP_STATION_ASSIGNMENT)))
     .filter((col("start_station_name") == GROUP_STATION_ASSIGNMENT) | (col("end_station_name") == GROUP_STATION_ASSIGNMENT))
+    .withColumn("coming", lit(col("end_station_name") == GROUP_STATION_ASSIGNMENT))
     .writeStream
     .format("delta")
     .option("checkpointLocation", bronze_bike_checkPoint)
+    .partitionBy("coming")
     .trigger(once = True)
     .outputMode("append")
     .start(bronze_bike_delta)
@@ -78,6 +80,11 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE historic_bike_trip_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_bike.delta`
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM historic_bike_trip_b VERSION AS OF 5
 
 # COMMAND ----------
 
@@ -195,12 +202,12 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC FROM (
 # MAGIC SELECT 
 # MAGIC   CASE 
-# MAGIC   WHEN end_station_name = "8 Ave & W 33 St"
+# MAGIC   WHEN coming
 # MAGIC   THEN ended_at
 # MAGIC   ELSE started_at
 # MAGIC END AS main_time,
 # MAGIC   CASE 
-# MAGIC   WHEN end_station_name = "8 Ave & W 33 St"
+# MAGIC   WHEN coming
 # MAGIC   THEN 1
 # MAGIC   ELSE -1
 # MAGIC END AS changed
@@ -208,6 +215,11 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC )
 # MAGIC GROUP BY dates, hour 
 # MAGIC ORDER BY dates DESC, hour DESC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM time_and_netChange_G10_db
 
 # COMMAND ----------
 

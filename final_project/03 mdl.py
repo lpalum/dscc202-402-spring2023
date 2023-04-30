@@ -42,7 +42,7 @@ plt.show()
 
 # DBTITLE 1,Create a Baseline Model
 # rename the timestamp column to "ds" and the target column to "y"
-df = df.rename(columns={'timestamp': 'ds'})
+df = df.rename(columns={'ts': 'ds'})
 df = df.rename(columns={'net_change': 'y'})
 
 # create a Prophet model with all features as covariates

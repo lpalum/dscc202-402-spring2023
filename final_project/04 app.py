@@ -36,7 +36,7 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
-spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createTempView("weather_tmp_G10_db")
+spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView("weather_tmp_G10_db")
 
 # COMMAND ----------
 
@@ -48,16 +48,18 @@ spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createTempView("weather
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
 # MAGIC SELECT 
-# MAGIC CAST(time as date) AS dates,
+# MAGIC time as ts,
+# MAGIC year(time) as year,
 # MAGIC month(time) as month,
+# MAGIC dayofmonth(time) as dayofmonth,
 # MAGIC dayofweek(time) AS dayofweek,
 # MAGIC HOUR(time) AS hour,
 # MAGIC feels_like,
-# MAGIC `rain.1h` as rain_1h,
+# MAGIC COALESCE(`rain.1h`, 0 ) as rain_1h,
 # MAGIC explode(weather.description),
 # MAGIC isHoliday(year(time), month(time), day(time)) AS holiday
 # MAGIC FROM weather_tmp_G10_db
-# MAGIC SORT BY time DESC 
+# MAGIC ORDER BY time 
 
 # COMMAND ----------
 

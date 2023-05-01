@@ -352,6 +352,8 @@ silver_weather_query = (silver_weather.write
 
 # COMMAND ----------
 
+from pyspark.sql import Window
+import pyspark.sql.functions as f
 weather = (spark.read
     .format("delta")
     .load(silver_historic_weather_path))
@@ -360,20 +362,94 @@ trips = (spark.read
     .format("delta")
     .load(silver_historic_trip_path))
 
+
+#round the start time to the nearest hour in order to join with weather df
 mod_trips = trips.withColumn("unix", (round(unix_timestamp("started_at")/3600)*3600).cast("timestamp"))
 trips = mod_trips.withColumn("rounded_started_at", date_format(from_unixtime(col("unix").cast("long")), "yyyy-MM-dd HH:mm:ss"))
 
 
 
 joined_df = trips.join(weather, trips.rounded_started_at == weather.dt, "inner")
-
 joined_df = joined_df.drop("unix")
+
+#round the end time to the nearest hour
+joined_df = joined_df.withColumn("unix", (round(unix_timestamp("ended_at")/3600)*3600).cast("timestamp"))
+joined_df = joined_df.withColumn("rounded_ended_at", date_format(from_unixtime(col("unix").cast("long")), "yyyy-MM-dd HH:mm:ss"))
+joined_df = joined_df.drop("unix")
+
+
+
+df1 = joined_df.filter(joined_df.end_station_name == GROUP_STATION_ASSIGNMENT)
+df1 = df1.withColumnRenamed("rounded_ended_at", "end")
+df1 = df1.groupBy("end").count()
+df1 = df1.withColumnRenamed("count", "hour_increase")
+df1 = df1.join(weather, weather.dt == df1.end, "outer")
+
+
+df2 = joined_df.filter(joined_df.start_station_name == GROUP_STATION_ASSIGNMENT)
+df2 = df2.withColumnRenamed("rounded_started_at", "start")
+df2 = df2.groupBy("start").count()
+df2 = df2.withColumnRenamed("count", "hour_decrease")
+df2 = df2.join(weather, weather.dt == df2.start, "outer")
+df2 = df2.withColumnRenamed("dt", "date")
+df2 = df2.drop("feels_like", "main", "snow_1h", "temp", "rain_1h")
+
+inventory = df1.join(df2, df1.dt == df2.date, "inner")
+
+inventory = inventory.fillna(value=0)
+
+inventory = inventory.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
+
+
+
+#inventory = invetory.join(weather, weather.dt == inventory)
+
+
+joined_df = joined_df.join(df1, joined_df.rounded_ended_at == df1.end, "left")
+joined_df = joined_df.join(df2, joined_df.rounded_ended_at == df2.start, "left")
+
+joined_df = joined_df.fillna(value=0)
+
+joined_df = joined_df.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
+
+joined_df = joined_df.drop("start")
+joined_df = joined_df.drop("end")
+
 
 joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
 joined_query = (joined_df.write
     .format("delta")
     .mode("overwrite")
+    .option("mergeSchema", True)
     .save(joined_path))
+
+# COMMAND ----------
+
+
+inventory = inventory.select(
+    'dt',
+    'temp',
+    'feels_like',
+    'snow_1h',
+    'main',
+    'rain_1h',
+    'net_hour_change'
+)
+
+inventory_path = f"dbfs:/FileStore/tables/G11/silver/inventory/"
+query = (inventory.write
+    .format("delta")
+    .mode("overwrite")
+    .save(inventory_path))
+
+# COMMAND ----------
+
+inventory.display()
+inventory.count()
+
+# COMMAND ----------
+
+weather.count()
 
 # COMMAND ----------
 

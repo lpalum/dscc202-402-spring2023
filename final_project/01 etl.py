@@ -84,7 +84,7 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM historic_bike_trip_b VERSION AS OF 5
+# MAGIC SELECT * FROM historic_bike_trip_b
 
 # COMMAND ----------
 
@@ -111,7 +111,8 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
  .writeStream
  .format("delta")
  .option("checkpointLocation", bronze_weather_checkPoint)
- .trigger(availableNow = True)
+ .partitionBy("description")
+ .trigger(once = True)
  .outputMode("append")
  .start(bronze_weather_delta)
  .awaitTermination()

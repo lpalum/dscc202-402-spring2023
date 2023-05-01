@@ -84,7 +84,7 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM historic_bike_trip_b VERSION AS OF 5
+# MAGIC SELECT * FROM historic_bike_trip_b
 
 # COMMAND ----------
 
@@ -111,7 +111,8 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
  .writeStream
  .format("delta")
  .option("checkpointLocation", bronze_weather_checkPoint)
- .trigger(availableNow = True)
+ .partitionBy("description")
+ .trigger(once = True)
  .outputMode("append")
  .start(bronze_weather_delta)
  .awaitTermination()
@@ -192,13 +193,6 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT 
-# MAGIC date_format(ended_at, 'yyyy-MM-dd HH:00:00') as time
-# MAGIC FROM historic_bike_trip_b
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW time_and_netChange_G10_db AS 
 # MAGIC SELECT
 # MAGIC main_time as ts,
@@ -223,11 +217,6 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC FROM historic_bike_trip_b
 # MAGIC )
 # MAGIC GROUP BY main_time
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM time_and_netChange_G10_db
 
 # COMMAND ----------
 
@@ -257,10 +246,6 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
     .mode("overwrite")
     .save(silver_bike_weather_delta)
 )
-
-# COMMAND ----------
-
-display(dbutils.fs.ls(GROUP_DATA_PATH))
 
 # COMMAND ----------
 

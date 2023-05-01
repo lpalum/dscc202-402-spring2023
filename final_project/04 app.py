@@ -18,19 +18,36 @@ pip install folium
 
 # COMMAND ----------
 
+
+def kelvinToFahrenheit(kelvin):
+    return round(kelvin * 1.8 - 459.67)
+    
+
+# COMMAND ----------
+
 import folium
 from pyspark.sql.functions import *
 
 #Get and display current timestamp
 
-df = spark.sql("select to_utc_timestamp(current_timestamp(), '+04:00')")
-currentTS = df.collect()[0][0]
+df2= spark.sql("select current_timestamp()")
+df3 = spark.sql("select to_unix_timestamp(date_trunc('hour', current_timestamp()))")
+unixTime=df3.collect()[0][0]
+print(currentTS)
 displayHTML("<h2>Current Timestamp: </h2>")
-displayHTML(currentTS)
+display(df2)
+
+
+#Get and display current weather (Temp and Percent Chance of Precip)
+
+dfWeather = spark.read.load(BRONZE_NYC_WEATHER_PATH)
+displayHTML("<br><br><h2>Current Weather Information:</h2>")
+display(dfWeather.select('dt','temp','pop').filter(dfWeather.dt ==unixTime).withColumn("Temperature",kelvinToFahrenheit(col('temp'))).withColumn('Percent Chance of Precipitation', col('pop')).drop('dt','temp','pop'))
+
 
 # Create map of station location and header for map
 
-displayHTML("<br><br><h2>Station: 8 Ave & W 33 St</h2>")
+displayHTML("<br><br><h2>Station: <br> <br> 8 Ave & W 33 St</h2>")
 map=folium.Map(location=[40.751551,-73.993934], zoom_start=17, min_zoom=17, max_zoom=17)
 map.add_child(folium.Marker(location=[40.751551,-73.993934],popup='8 Ave & W 33 St',icon=folium.Icon(color='red')))
 map

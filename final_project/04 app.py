@@ -41,11 +41,6 @@ spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM weather_tmp_G10_db
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
 # MAGIC SELECT 
 # MAGIC time as ts,
@@ -85,7 +80,7 @@ gold_actual_netChange_delta = f"{GROUP_DATA_PATH}gold_actual_netChange.delta"
 
 # COMMAND ----------
 
-from pyspark.sql.functions import to_date, cast, hour 
+from pyspark.sql.functions import to_date, cast, hour,col
 statusDf = (
     spark.read.format('delta')
     .load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == station_id)
@@ -102,11 +97,8 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW real_netChange_G10_db AS
-# MAGIC SELECT 
-# MAGIC   ts,
-# MAGIC   date,
-# MAGIC   hour, 
-# MAGIC   num_docks_available,
+# MAGIC SELECT
+# MAGIC   date_format(ts, 'yyyy-MM-dd HH:00:00') as ts,
 # MAGIC   netChange
 # MAGIC FROM (
 # MAGIC   SELECT 
@@ -126,6 +118,11 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # MAGIC ORDER BY ts DESC 
 # MAGIC )
 # MAGIC WHERE rn > 1
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC SELECT * FROM real_netChange_G10_db
 
 # COMMAND ----------
 

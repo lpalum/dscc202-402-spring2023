@@ -135,7 +135,7 @@ display(df)
 # MAGIC CREATE OR REPLACE TEMP VIEW date_bike_G10_db AS (
 # MAGIC   SELECT  YEAR(started_at) as year, MONTH(started_at) as month, DAY(started_at) as day, HOUR(started_at) AS hour, * FROM historic_bike_trip_b
 # MAGIC );
-# MAGIC 
+# MAGIC
 # MAGIC SELECT * FROM date_bike_G10_db;
 
 # COMMAND ----------
@@ -144,7 +144,7 @@ display(df)
 # MAGIC SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
 # MAGIC GROUP BY year
 # MAGIC SORT BY year
-# MAGIC 
+# MAGIC
 # MAGIC --number of bike trips by year
 
 # COMMAND ----------
@@ -154,7 +154,7 @@ display(df)
 # MAGIC WHERE year == 2022
 # MAGIC GROUP BY month
 # MAGIC SORT BY month
-# MAGIC 
+# MAGIC
 # MAGIC -- Highest use in the Summer, then Fall / Spring, then Winter
 
 # COMMAND ----------
@@ -371,11 +371,6 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC <li>3.71% of rides that ended at our station originated at 11 Ave & W 41 St</li>
 # MAGIC <li>3.78% of rides that began at our station ended at W 35 St & 8 Ave</li>
 # MAGIC <li>These are both almost double values of the stations with the next highest number of ride originations / destinations</li>
-
-# COMMAND ----------
-
-dfCombined = spark.table("historic_bike_weather_G10_db")
-displayHTML(pandas_profiling.ProfileReport(dfCombined.toPandas()).html)
 
 # COMMAND ----------
 

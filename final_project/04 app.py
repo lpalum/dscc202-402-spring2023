@@ -33,7 +33,6 @@ from pyspark.sql.functions import *
 df2= spark.sql("select current_timestamp()")
 df3 = spark.sql("select to_unix_timestamp(date_trunc('hour', current_timestamp()))")
 unixTime=df3.collect()[0][0]
-print(currentTS)
 displayHTML("<h2>Current Timestamp: </h2>")
 display(df2)
 
@@ -42,7 +41,7 @@ display(df2)
 
 dfWeather = spark.read.load(BRONZE_NYC_WEATHER_PATH)
 displayHTML("<br><br><h2>Current Weather Information:</h2>")
-display(dfWeather.select('dt','temp','pop').filter(dfWeather.dt ==unixTime).withColumn("Temperature",kelvinToFahrenheit(col('temp'))).withColumn('Percent Chance of Precipitation', col('pop')).drop('dt','temp','pop'))
+display(dfWeather.select('dt','temp','pop').filter(dfWeather.dt ==unixTime).withColumn("Temperature",kelvinToFahrenheit(col('temp'))).withColumn('Chance of Precipitation', col('pop')).drop('dt','temp','pop'))
 
 
 # Create map of station location and header for map

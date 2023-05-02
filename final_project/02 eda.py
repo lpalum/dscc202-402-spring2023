@@ -131,6 +131,11 @@ display(df)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6>Create a temp view that adds columns for hour, day, month, and year from the bronze historic bike trip data</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW date_bike_G10_db AS (
 # MAGIC   SELECT  YEAR(started_at) as year, MONTH(started_at) as month, DAY(started_at) as day, HOUR(started_at) AS hour, * FROM historic_bike_trip_b
@@ -140,12 +145,22 @@ display(df)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6>Determine number of rides per year</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
 # MAGIC GROUP BY year
 # MAGIC SORT BY year
 # MAGIC
 # MAGIC --number of bike trips by year
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6> Confirms that data from 2021 and 2023 does not contain data for all 12 months. This could cause the disingenious results in evaluating yearly/monthly/daily trends. Move forward with data from only 2022 in order to capture monthly / daily trends over a year period</h6>
 
 # COMMAND ----------
 
@@ -159,16 +174,56 @@ display(df)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6> Find total number of trips in each month for the year 2022</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
-# MAGIC SELECT month, day, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
 # MAGIC WHERE year == 2022
-# MAGIC GROUP BY month, day
+# MAGIC GROUP BY month
+# MAGIC SORT BY count DESC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC WHERE year == 2023
+# MAGIC GROUP BY month
 # MAGIC SORT BY count DESC
 
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC <h6>Compare total number of rides in first 3 months of 2022 to first 3 months in 2023</h6>
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT month, year, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC WHERE month IN (1,2,3) AND year IN (2022, 2023)
+# MAGIC GROUP BY month, year
+# MAGIC SORT BY month, year
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ##Takeaways from Exploration of Monthly Bike Trends
+# MAGIC </br>
+# MAGIC <ul>
+# MAGIC <li>Bike use higher in the warmer (Summer, Fall, Spring) months</li>
+# MAGIC <li>Total number of rides in the first 3 moths of 2023 higher than total rides for the first 3 months of 2022. This could suggest that use of citibikes and the station is growing</li>
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC #DAILY TRIP TRENDS
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Create functions to return the day name and day number based on a date</h6>
 
 # COMMAND ----------
 
@@ -190,6 +245,11 @@ def dayNumber (year, month, day):
     return d.dayofweek
 
 spark.udf.register("dayNumber", dayNumber)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Find total number of trips for each day of the week</h6>
 
 # COMMAND ----------
 
@@ -218,7 +278,17 @@ spark.udf.register("dayNumber", dayNumber)
 # MAGIC </br>
 # MAGIC <ul>
 # MAGIC <li>Bike use higher on weekdays than on the weekends</li>
-# MAGIC <li>Suggests that the main use for the stations is by commuters</li>
+# MAGIC <li>Suggests that the main use of the stations is by commuters</li>
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #HOURLY TRIP TRENDS
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Find total number of trips for each hour of the day</h6>
 
 # COMMAND ----------
 
@@ -229,6 +299,11 @@ spark.udf.register("dayNumber", dayNumber)
 # MAGIC   )
 # MAGIC GROUP BY hour
 # MAGIC SORT BY count DESC;
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Investigate correlation between day and month (not that helpful)</h6>
 
 # COMMAND ----------
 
@@ -250,12 +325,18 @@ spark.udf.register("dayNumber", dayNumber)
 # MAGIC <li> Top time of day for bike use is afternoon / evening from 2:00 PM - 6:00 PM </li>
 # MAGIC <li> 7:00 AM - 9:00 AM also are in the top ten </li>
 # MAGIC <li> 1:00 PM is in the top 10 as well, which points to the use of bikes for lunch time trips </li>
+# MAGIC <li> These trends suggest that bikes are heavily used by commuters to go to/from work/school/etc.</li>
 # MAGIC </ul>  
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC #HOLIDAY TRENDS
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Function to determine if a given date is a US Holiday</h6>
 
 # COMMAND ----------
 
@@ -273,6 +354,11 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6>Determine average number of bike rides per day on Holidays vs Non Holidays</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC SELECT holiday, avg(count) as count FROM(
 # MAGIC    SELECT date, count(*) as count , max(holiday) as holiday
@@ -286,6 +372,15 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ##Takeaways from Exploration of Holiday Bike Use
+# MAGIC </br>
+# MAGIC <ul>
+# MAGIC <li>The number of bike trips, on average, is lower on holidays than not on holidays</li>
+# MAGIC </ul> 
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC #WEATHER TRENDS
 
 # COMMAND ----------
@@ -295,11 +390,21 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6>Create a temp view that adds columns for date, day name, and day number from the bronze historic weather data</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW historic_trips_with_days_G10_db AS(
 # MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
 # MAGIC   WHERE year == 2022
 # MAGIC )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Create temp view that joins bronze bike trip data with bronze weather data. Determine total number of trips for each weather description</h6>
 
 # COMMAND ----------
 
@@ -342,6 +447,11 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC <h6>Get list of origination stations and count of trips from that station that ended at our station</h6>
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC SELECT start_station_name, count(ride_id) as count FROM(
 # MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
@@ -350,6 +460,11 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC   )
 # MAGIC GROUP BY start_station_name
 # MAGIC SORT BY count DESC;
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Get list of ending stations and count of trips ending at that station that began at our station</h6>
 
 # COMMAND ----------
 

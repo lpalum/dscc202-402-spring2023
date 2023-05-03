@@ -28,11 +28,6 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SHOW TABLES
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Historic Bike data 
 # MAGIC ##### historic_bike_trip_b - bronze
@@ -40,18 +35,9 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 
 # COMMAND ----------
 
-display(dbutils.fs.ls(GROUP_DATA_PATH))
-
-# COMMAND ----------
-
 bronze_bike_schema = "started_at TIMESTAMP, ended_at TIMESTAMP, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE"
 bronze_bike_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_bike.checkpoint"
 bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
-
-# COMMAND ----------
-
-# dbutils.fs.rm(bronze_bike_checkPoint, recurse = True)
-# dbutils.fs.rm(bronze_bike_delta, recurse = True)
 
 # COMMAND ----------
 
@@ -83,8 +69,8 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_bike_trip_b VERSION AS OF 5
+# %sql
+# SELECT * FROM historic_bike_trip_b
 
 # COMMAND ----------
 
@@ -111,7 +97,8 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
  .writeStream
  .format("delta")
  .option("checkpointLocation", bronze_weather_checkPoint)
- .trigger(availableNow = True)
+ .partitionBy("description")
+ .trigger(once = True)
  .outputMode("append")
  .start(bronze_weather_delta)
  .awaitTermination()
@@ -128,8 +115,8 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_weather_b
+# %sql
+# SELECT * FROM historic_weather_b
 
 # COMMAND ----------
 
@@ -139,8 +126,7 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # DBTITLE 1,Display Bike Station Information
-display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
-# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH))
+# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
 
 # COMMAND ----------
 
@@ -150,10 +136,8 @@ display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("na
 # COMMAND ----------
 
 # DBTITLE 1,Display the Bike Station Status Information
-# statusDf = spark.read.format('delta').load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c")
-# statusDf = statusDf.withColumn( "last_reported", col("last_reported").cast("timestamp")).sort(col("last_reported").desc())
-statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH)
-display(statusDf)
+# statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH)
+# display(statusDf)
 
 
 # COMMAND ----------
@@ -164,7 +148,7 @@ display(statusDf)
 # COMMAND ----------
 
 # DBTITLE 1,Display the current (within the hour) NYC Weather Information
-display(spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).sort(col("time").desc()))
+# display(spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).sort(col("time").desc()))
 
 # COMMAND ----------
 
@@ -188,13 +172,6 @@ def isHoliday(year, month, day):
     return date(year, month, day) in us_holidays
 spark.udf.register("isHoliday", isHoliday)
 
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT 
-# MAGIC date_format(ended_at, 'yyyy-MM-dd HH:00:00') as time
-# MAGIC FROM historic_bike_trip_b
 
 # COMMAND ----------
 
@@ -227,11 +204,6 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT * FROM time_and_netChange_G10_db
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_netChange_G10_db AS 
 # MAGIC SELECT B.ts, year, month, dayofmonth, dayofweek, B.hour, feels_like, rain_1h , description, isHoliday(year(B.ts), month, day(B.ts)) AS holiday, net_change 
 # MAGIC FROM time_and_netChange_G10_db AS B 
@@ -245,11 +217,6 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM time_weather_netChange_G10_db
-
-# COMMAND ----------
-
 silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta/"
 (spark.table("time_weather_netChange_G10_db")
     .write
@@ -260,18 +227,14 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
 
 # COMMAND ----------
 
-display(dbutils.fs.ls(GROUP_DATA_PATH))
-
-# COMMAND ----------
-
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE train_bike_weather_netChange_s AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/silver_historic_bike_weather.delta/`
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM train_bike_weather_netChange_s
+# %sql
+# SELECT * FROM train_bike_weather_netChange_s
 
 # COMMAND ----------
 

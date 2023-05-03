@@ -19,8 +19,12 @@ pip install folium
 # COMMAND ----------
 
 
+@udf
+
 def kelvinToFahrenheit(kelvin):
     return round(kelvin * 1.8 - 459.67)
+
+spark.udf.register("kelvinToFahrenheit", kelvinToFahrenheit)    
     
 
 # COMMAND ----------

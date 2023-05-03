@@ -12,36 +12,28 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
-#dfStatus = spark.read.load('dbfs:/FileStore/tables/G10/bronze_historic_bike.delta/')
-#display(dfStatus)
-#dbfs:/FileStore/tables/G10/bronze_historic_bike.delta/
-#dbfs:/FileStore/tables/G10/bronze_historic_weather.delta/
-#display(dbutils.fs.ls(GROUP_DATA_PATH))
+# MAGIC %sql
+# MAGIC SHOW TABLES;
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SHOW TABLES;
-# MAGIC --select * from bike_weather_netchange_s;
-# MAGIC SELECT * from historic_bike_trip_b;
+# MAGIC CREATE TABLE IF NOT EXISTS historic_weather_b
+# MAGIC USING DELTA LOCATION 'dbfs:/FileStore/tables/G10/bronze_historic_weather.delta';
+# MAGIC
+# MAGIC SELECT * from historic_weather_b
 
 # COMMAND ----------
 
-start_date = str(dbutils.widgets.get('01.start_date'))
-end_date = str(dbutils.widgets.get('02.end_date'))
-hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
-promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
-
-print(start_date,end_date,hours_to_forecast, promote_model)
-print("YOUR CODE HERE...")
+# MAGIC %sql
+# MAGIC CREATE TABLE IF NOT EXISTS historic_bike_trip_b
+# MAGIC USING DELTA LOCATION 'dbfs:/FileStore/tables/G10/bronze_historic_weather.delta';
+# MAGIC
+# MAGIC SELECT * FROM historic_bike_trip_b
 
 # COMMAND ----------
 
 from pyspark.sql.functions import col, from_unixtime
-#df=spark.read.load("/FileStore/tables/bronze_nyc_weather.delta")
-
-#display(df.withColumn("DateTime", from_unixtime(col("dt"))))
-#display(df)
 
 # COMMAND ----------
 
@@ -410,14 +402,15 @@ spark.udf.register("isHoliday", isHoliday)
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW historic_bike_weather_G10_db AS(
-# MAGIC     SELECT date, DayName, dayNumber, day, hour, ride_id, feels_like, humidity, wind_speed, main, description, snow_1h, rain_1h
+# MAGIC     SELECT date, DayName, dayNumber, day, hour, ride_id, feels_like, humidity, wind_speed, main, description, snow_1h, rain_1h, pop
 # MAGIC     FROM historic_trips_with_days_G10_db AS B JOIN historic_weather_b AS W
 # MAGIC     ON W.time BETWEEN B.started_at AND B.ended_at
 # MAGIC     );
 # MAGIC     
 # MAGIC SELECT COUNT(ride_id) as count, description
 # MAGIC FROM historic_bike_weather_G10_db
-# MAGIC  GROUP BY description;
+# MAGIC  GROUP BY description
+# MAGIC  ORDER BY count DESC;
 # MAGIC  
 # MAGIC  --- Most rides occur when there is no precipitation
 
@@ -434,11 +427,70 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC <h6>Function to convert Kelvin to Fahrenheit and put a specfic temperature value into a temperature range (i.e. 63 to 60's, 78 to 70's)</h6>
+
+# COMMAND ----------
+
+@udf
+
+def kelvinToFahrenheit(kelvin):
+    return round(kelvin * 1.8 - 459.67)
+
+spark.udf.register("kelvinToFahrenheit", kelvinToFahrenheit)
+
+
+def tempRange (temp):
+    if abs(temp) >=10:
+        while (abs(temp) >= 10):
+            temp = temp // 10    
+        return temp * 10
+    else:
+        return 0
+
+
+spark.udf.register("tempRange", tempRange)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Determine total number of rides for each temperature range</h6>
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT COUNT(ride_id) as count, tempRange(feels_like_F) as feels_like_range FROM (
+# MAGIC     SELECT ride_id, kelvinToFahrenheit(feels_like) as feels_like_F
+# MAGIC       FROM historic_bike_weather_G10_db
+# MAGIC )
+# MAGIC  GROUP BY feels_like_range
+# MAGIC  ORDER BY count DESC;
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Determine total number of rides for each range of chance of precipitation. Re-use/re-purpose the function that was used above to put temperatures into ranges</h6>
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT COUNT(ride_id) as count, tempRange(pop *100) as chance_of_precip
+# MAGIC       FROM historic_bike_weather_G10_db
+# MAGIC  GROUP BY chance_of_precip
+# MAGIC  ORDER BY count DESC;
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ##Takeaways from Exploration of Weather Data
 # MAGIC </br>
 # MAGIC <ul>
-# MAGIC <li>Bike usage increases when precipitation decreases</li>
+# MAGIC <li>Bike usage increases when chance of precipitation is lower</li>
+# MAGIC <li>Bike usage increases as temperature increases - until it hits the 80's and then it starts to decrease again. Usage peaks in the 70's</li>
 # MAGIC </ul>
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 

@@ -20,11 +20,14 @@ import numpy as np
 from prophet import Prophet, serialize
 from prophet.diagnostics import cross_validation, performance_metrics
 
+
+
 from mlflow.tracking.client import MlflowClient
 
 # Visualization
 import seaborn as sns
 import matplotlib.pyplot as plt
+sns.set(color_codes=True)
 
 # Hyperparameter tuning
 import itertools
@@ -49,22 +52,22 @@ def extract_params(pr_model):
 # COMMAND ----------
 
 df = data.toPandas()
+df = df.rename(columns={'dt':'ds', 'net_hour_change':'y'})
 print(df)
 
 # COMMAND ----------
 
 #df = df[["rounded_started_at", "net_hour_change"]]
-df = df.rename(columns={'dt':'ds', 'net_hour_change':'y'})
+
 
 train_data = df.sample(frac=0.8, random_state=42)
 test_data = df.drop(train_data.index)
-
 x_train, y_train, x_test, y_test = train_data["ds"], train_data["y"], test_data["ds"], test_data["y"]
 
 # COMMAND ----------
 
 import plotly.express as px
-fig = px.line(train_data, x="ds", y="y", title='Bike Rides')
+fig = px.line(df, x="ds", y="y", title='Net bike change')
 fig.show()
 
 # COMMAND ----------
@@ -86,7 +89,7 @@ all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_
 print(f"Total training runs {len(all_params)}")
 
 # Create a list to store MAPE values for each combination
-maes = [] 
+maes = []
 
 # Use cross validation to evaluate all parameters
 for params in all_params:
@@ -104,17 +107,26 @@ for params in all_params:
         # Model performance
         # df_p = performance_metrics(m, rolling_window=1)
 
-        # try:
-        #     metric_keys = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
-        #     metrics = {k: df_p[k].mean() for k in metric_keys}
-        #     params = extract_params(m)
-        # except:
-        #     pass
-
-        # print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
-        # print(f"Logged Params: \n{json.dumps(params, indent=2)}")
-
         y_pred = m.predict(test_data.dropna())
+
+        #df_p = performance_metrics(y_pred, rolling_window=1)
+        
+        #metric_keys = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
+        #metrics = {k: y_pred[k].mean() for k in metric_keys}
+        #params = extract_params(m)
+       
+
+        #print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
+        #print(f"Logged Params: \n{json.dumps(params, indent=2)}")
+
+        #mlflow.prophet.log_model(m, artifact_path=ARTIFCAT_PATH)
+        #mlflow.log_params(params)
+        #mlflow.log_metrics(metrics)
+        #model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+
+        #mapes.append((y_pred['mape'].values[0],model_uri))
+
+       
 
         mae = mean_absolute_error(y_test.dropna(), y_pred['yhat'])
         mlflow.prophet.log_model(m, artifact_path=ARTIFACT_PATH)
@@ -180,6 +192,52 @@ fig.show()
 
 model_details = mlflow.register_model(model_uri=best_params['model'], name=GROUP_MODEL_NAME)
 
+
+# COMMAND ----------
+
+client = MlflowClient()
+
+# COMMAND ----------
+
+if promote_model:
+    client.transition_model_version_stage(
+    name=model_details.name,
+    version=model_details.version,
+    stage='Production')
+else:
+    client.transition_model_version_stage(
+    name=model_details.name,
+    version=model_details.version,
+    stage='Staging'
+)
+
+# COMMAND ----------
+
+model_version_details = client.get_model_version(
+    name=model_details.name,
+    version=model_details.version
+)
+print("The current model stage is: '{stage}'".format(stage=model_version_details.current_stage))
+
+# COMMAND ----------
+
+latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=["Staging"])
+
+latest_staging_version = latest_version_info[0].version
+
+print("The latest staging version of the model '%s' is '%s'." % (ARTIFACT_PATH, latest_staging_version))
+
+# COMMAND ----------
+
+model_staging_uri = "models:/{model_name}/staging".format(model_name=ARTIFACT_PATH)
+
+print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_staging_uri))
+
+model_staging = mlflow.prophet.load_model(model_staging_uri)
+
+# COMMAND ----------
+
+model_staging.plot(model_staging.predict(test_data))
 
 # COMMAND ----------
 

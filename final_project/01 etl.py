@@ -227,7 +227,7 @@ historic_trip_silver = historic_trip_silver.withColumn("ended_at", date_format(c
 
 # COMMAND ----------
 
-historic_trip_silver.display()
+#historic_trip_silver.display()
 
 # COMMAND ----------
 
@@ -275,7 +275,7 @@ silver_historic_weather_query = (silver_historic_weather.write
 
 # COMMAND ----------
 
-silver_historic_weather.display()
+#silver_historic_weather.display()
 
 # COMMAND ----------
 
@@ -292,6 +292,11 @@ silver_station_info_query = (silver_station_info.write
     .format("delta")
     .mode("overwrite")
     .save(silver_station_info_path))
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/station_info'
 
 # COMMAND ----------
 
@@ -318,6 +323,11 @@ silver_station_status_query = (silver_station_status.write
     .format("delta")
     .mode("overwrite")
     .save(silver_station_status_path))
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/station_status'
 
 # COMMAND ----------
 
@@ -349,6 +359,11 @@ silver_weather_query = (silver_weather.write
 .format("delta")
 .mode("overwrite")
 .save(silver_weather_path))
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/weather'
 
 # COMMAND ----------
 
@@ -405,23 +420,40 @@ inventory = inventory.withColumn("net_hour_change", (f.col("hour_increase") - f.
 #inventory = invetory.join(weather, weather.dt == inventory)
 
 
-joined_df = joined_df.join(df1, joined_df.rounded_ended_at == df1.end, "left")
-joined_df = joined_df.join(df2, joined_df.rounded_ended_at == df2.start, "left")
+#joined_df = joined_df.join(df1, joined_df.rounded_ended_at == df1.end, "inner")
+#joined_df = joined_df.join(df2, joined_df.rounded_ended_at == df2.start, "inner")
 
-joined_df = joined_df.fillna(value=0)
+#joined_df = joined_df.fillna(value=0)
 
-joined_df = joined_df.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
+#joined_df = joined_df.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
 
-joined_df = joined_df.drop("start")
-joined_df = joined_df.drop("end")
+#joined_df = joined_df.drop("start")
+#joined_df = joined_df.drop("end")
 
 
-joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
-joined_query = (joined_df.write
-    .format("delta")
-    .mode("overwrite")
-    .option("mergeSchema", True)
-    .save(joined_path))
+
+
+# COMMAND ----------
+
+inventory.display()
+
+# COMMAND ----------
+
+joined_df.display()
+
+# COMMAND ----------
+
+
+#joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
+#joined_query = (joined_df.write
+#    .format("delta")
+#    .mode("overwrite")
+#    .save(joined_path))
+
+# COMMAND ----------
+
+#%sql
+#OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/joined'
 
 # COMMAND ----------
 
@@ -444,28 +476,8 @@ query = (inventory.write
 
 # COMMAND ----------
 
-inventory.display()
-inventory.count()
-
-# COMMAND ----------
-
-weather.count()
-
-# COMMAND ----------
-
-joined_df.display()
-
-# COMMAND ----------
-
-silver_weather.display()
-
-# COMMAND ----------
-
-#dbutils.fs.mkdirs("dbfs:/FileStore/tables/G11/silver/historic_weather_data/")
-
-# COMMAND ----------
-
-# MAGIC %fs rm -r dbfs:/FileStore/tables/G11/silver/joined/
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/inventory'
 
 # COMMAND ----------
 

@@ -61,8 +61,33 @@ spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView
 
 # COMMAND ----------
 
-# %sql
-# SELECT * FROM time_weather_G10_db
+# MAGIC %sql
+# MAGIC SELECT * FROM time_weather_G10_db
+
+# COMMAND ----------
+
+# DBTITLE 1,Forecast
+# Predict on the future
+model_staging = mlflow.prophet.load_model(model_staging_uri)
+staging_forecast = model_staging.predict(model_staging.make_future_dataframe(hours_to_forecast, freq="H"))
+staging_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+
+# COMMAND ----------
+
+prophet_plot = model_staging.plot(staging_forecast)
+
+# COMMAND ----------
+
+prophet_plot2 = model_staging.plot_components(staging_forecast)
+
+# COMMAND ----------
+
+# DBTITLE 1,Create a Residual Plot
+# Plot the residuals
+results = staging_forecast[['ds','yhat']].join(df, lsuffix='_caller', rsuffix='_other')
+results['residual'] = results['yhat'] - results['y']
+fig = px.scatter(results, x='yhat', y='residual', marginal_y='violin', trendline='ols')
+fig.show()
 
 # COMMAND ----------
 
@@ -126,8 +151,8 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # COMMAND ----------
 
-# %sql 
-# SELECT * FROM real_netChange_G10_db
+# MAGIC %sql 
+# MAGIC SELECT * FROM real_netChange_G10_db
 
 # COMMAND ----------
 
@@ -150,8 +175,8 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # COMMAND ----------
 
-# %sql
-# SELECT * FROM real_netChange_g
+# MAGIC %sql
+# MAGIC SELECT * FROM real_netChange_g
 
 # COMMAND ----------
 

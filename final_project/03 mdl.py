@@ -100,6 +100,7 @@ for params in all_params:
         m.add_country_holidays(country_name='US')
         m.add_regressor('feels_like')
         m.add_regressor('rain_1h')
+        m.add_regressor('temp')
         m.fit(train_data)
 
         # Cross-validation
@@ -245,6 +246,10 @@ import json
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 

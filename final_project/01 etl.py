@@ -74,7 +74,7 @@ historic_trip_query = (historic_trip_df.writeStream
 bronze_station_status_df = (spark.read
                            .format("delta")
                            .load(BRONZE_STATION_STATUS_PATH))
-#bronze_station_status_df.display()
+bronze_station_status_df.display()
 
 # COMMAND ----------
 
@@ -103,12 +103,12 @@ bronze_station_status_query = (bronze_station_status_df.write
 bronze_station_info_df = (spark.read
                            .format("delta")
                            .load(BRONZE_STATION_INFO_PATH))
-#bronze_station_info_df.display()
+bronze_station_info_df.display()
 
 # COMMAND ----------
 
 bronze_station_info_df = bronze_station_info_df.filter("short_name == '5492.05'")
-#bronze_station_info_df.display()
+bronze_station_info_df.display()
 
 # COMMAND ----------
 
@@ -315,7 +315,8 @@ silver_station_status = silver_station_status.select(
     'num_bikes_disabled',
     'num_docks_available',
     'last_reported',
-    'num_docks_disabled'
+    'num_docks_disabled',
+    'num_ebikes_available'
 )
 
 silver_station_status_path = f"dbfs:/FileStore/tables/G11/silver/station_status/"
@@ -414,6 +415,9 @@ inventory = df1.join(df2, df1.dt == df2.date, "inner")
 inventory = inventory.fillna(value=0)
 
 inventory = inventory.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
+
+inventory = inventory.drop("start")
+inventory = inventory.drop("end")
 
 
 

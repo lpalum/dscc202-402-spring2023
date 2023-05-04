@@ -21,8 +21,9 @@ import matplotlib.pyplot as plt
 from mlflow.tracking.client import MlflowClient
 import datetime
 from pyspark.sql.functions import *
+import mlflow
 
-
+ARTIFACT_PATH = GROUP_MODEL_NAME
 
 # COMMAND ----------
 
@@ -47,10 +48,6 @@ print(prod_model)
 
 print("Staging Model Details: ")
 print(stage_model)
-
-# COMMAND ----------
-
-pip install folium
 
 # COMMAND ----------
 
@@ -79,7 +76,124 @@ print(weather_df[weather_df.dt==currentdate].reset_index(drop=True))
 
 # COMMAND ----------
 
+info = (spark.read
+    .format("delta")
+    .load('dbfs:/FileStore/tables/G11/silver/station_info'))
+print("Station Capacity: ", info.collect()[0][0])
 
+# COMMAND ----------
+
+station_status = (spark.read
+    .format("delta")
+    .load('dbfs:/FileStore/tables/G11/silver/station_status'))
+
+display(station_status.filter(col("last_reported") <= currenthour).sort(desc("last_reported")).head(1))
+
+# COMMAND ----------
+
+real_time_inventory = station_status.withColumn("unix_rounded", (round(unix_timestamp("last_reported")/3600)*3600).cast("timestamp"))
+real_time_inventory = real_time_inventory.withColumn("rounded_hour", date_format(from_unixtime(col("unix_rounded").cast("long")), "yyyy-MM-dd HH:mm:ss"))
+real_time_inventory = real_time_inventory.drop("unix_rounded")
+
+from pyspark.sql.functions import col, lag, coalesce
+from pyspark.sql.window import Window
+
+w = Window.orderBy("rounded_hour")
+real_time_inventory = real_time_inventory.withColumn("diff", col("num_bikes_available") - lag(col("num_bikes_available"), 1).over(w))
+real_time_inventory = real_time_inventory.withColumn("diff", coalesce(col("diff"), col("num_bikes_available")))
+real_time_inventory = real_time_inventory.orderBy("rounded_hour", ascending=False)
+from pyspark.sql.functions import monotonically_increasing_id
+real_time_inventory = real_time_inventory.withColumn("index", monotonically_increasing_id())
+from pyspark.sql.functions import when
+diff = real_time_inventory.withColumn("difference", when(col('index').between(0, 7), None).otherwise(col('diff')))
+
+
+display(real_time_inventory)
+display(diff)
+
+# COMMAND ----------
+
+weather = (spark.read
+    .format("delta")
+    .load('dbfs:/FileStore/tables/G11/silver/weather'))
+data = weather.join(real_time_inventory, weather.dt == real_time_inventory.rounded_hour, "inner")
+test_data = data.toPandas()
+test_data = test_data.rename(columns={'dt':'ds'}).rename(columns={'diff': 'y'})
+test_data['ds'] = test_data['ds'].apply(pd.to_datetime)
+print(test_data)
+
+# COMMAND ----------
+
+client = MlflowClient()
+latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=['Production'])
+latest_production_version = latest_version_info[0].version
+print("The latest production version of the model '%s' is '%s'." %(ARTIFACT_PATH, latest_production_version))
+
+# Predict on the future based on the production model
+model_prod_uri = f'models:/{ARTIFACT_PATH}/production'
+model_prod = mlflow.prophet.load_model(model_prod_uri)
+prod_forecast = model_prod.predict(test_data)
+prod_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+
+# COMMAND ----------
+
+prophet_plot = model_prod.plot(prod_forecast)
+
+# COMMAND ----------
+
+prophet_plot2 = model_prod.plot_components(prod_forecast)
+
+# COMMAND ----------
+
+test_data.ds = pd.to_datetime(test_data.ds)
+prod_forecast.ds = pd.to_datetime(prod_forecast.ds)
+results = prod_forecast[['ds','yhat']].merge(test_data,on="ds")
+results['residual'] = results['yhat'] - results['y']
+
+# Plot the residuals
+
+fig = px.scatter(
+    results, x='yhat', y='residual',
+    marginal_y='violin',
+    trendline='ols'
+)
+fig.show()
+
+# COMMAND ----------
+
+latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=['Staging'])
+latest_staging_version = latest_version_info[0].version
+print("The latest staging version of the model '%s' is '%s'." %(ARTIFACT_PATH, latest_staging_version))
+
+# Predict on the future based on the staging model
+model_staging_uri = f'models:/{ARTIFACT_PATH}/staging'
+model_staging = mlflow.prophet.load_model(model_staging_uri)
+staging_forecast = model_staging.predict(test_data)
+staging_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
+
+# COMMAND ----------
+
+prophet_plot = model_staging.plot(staging_forecast)
+
+# COMMAND ----------
+
+prophet_plot2 = model_staging.plot_components(staging_forecast)
+
+# COMMAND ----------
+
+test_data.ds = pd.to_datetime(test_data.ds)
+staging_forecast.ds = pd.to_datetime(staging_forecast.ds)
+results = staging_forecast[['ds','yhat']].merge(test_data,on="ds")
+results['residual'] = results['yhat'] - results['y']
+
+# Plot the residuals
+
+fig = px.scatter(
+    results, x='yhat', y='residual',
+    marginal_y='violin',
+    trendline='ols'
+)
+fig.show()
 
 # COMMAND ----------
 

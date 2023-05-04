@@ -24,6 +24,7 @@ print("YOUR CODE HERE...")
 
 # COMMAND ----------
 
+# create and register function
 import holidays
 from datetime import date
 
@@ -36,11 +37,13 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
+# create weather_tmp_G10_db from delta file
 spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView("weather_tmp_G10_db")
 
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- Create time_weather_G10_db which will be used for inference 
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
 # MAGIC SELECT 
 # MAGIC time as ts,
@@ -58,28 +61,29 @@ spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM time_weather_G10_db
+# %sql
+# SELECT * FROM time_weather_G10_db
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Gold table (actual netchange-y)
+# MAGIC ## Actual netchange table (gold - real_netChange_g)
 
 # COMMAND ----------
 
+# see station info 
 display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
 
 # COMMAND ----------
 
+# assign station id 
 station_id = "66dc686c-0aca-11e7-82f6-3863bb44ef7c"
-
-# COMMAND ----------
-
+# define delta path 
 gold_actual_netChange_delta = f"{GROUP_DATA_PATH}gold_actual_netChange.delta"
 
 # COMMAND ----------
 
+# with basic data processing create station_status_G10_db
 from pyspark.sql.functions import to_date, cast, hour,col
 statusDf = (
     spark.read.format('delta')
@@ -96,6 +100,7 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- with station_status_G10_db create real_netChange_G10_db
 # MAGIC CREATE OR REPLACE TEMP VIEW real_netChange_G10_db AS
 # MAGIC SELECT
 # MAGIC   date_format(ts, 'yyyy-MM-dd HH:00:00') as ts,
@@ -121,11 +126,12 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # COMMAND ----------
 
-# MAGIC %sql 
-# MAGIC SELECT * FROM real_netChange_G10_db
+# %sql 
+# SELECT * FROM real_netChange_G10_db
 
 # COMMAND ----------
 
+# write a table to delta path 
 (
     spark.table("real_netChange_G10_db")
     .write
@@ -138,13 +144,14 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- Create real_netChange_g table 
 # MAGIC CREATE OR REPLACE TABLE real_netChange_g AS
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/gold_actual_netChange.delta/`
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM real_netChange_g
+# %sql
+# SELECT * FROM real_netChange_g
 
 # COMMAND ----------
 

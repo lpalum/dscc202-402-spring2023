@@ -241,6 +241,7 @@ results
 
 # Plot the residuals
 fig = px.scatter(results, x='yhat', y='residual', color='stage', marginal_y='violin', trendline='ols')
+fig.update_layout(title=f"{GROUP_STATION_ASSIGNMENT} rental forecast model performance comparison")
 fig.show()
 
 # COMMAND ----------

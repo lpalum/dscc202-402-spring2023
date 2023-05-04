@@ -15,7 +15,8 @@ print("YOUR CODE HERE...")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### DB
+# MAGIC ### set DB
+# MAGIC - set DB to make sure we are working on proper Database
 
 # COMMAND ----------
 
@@ -29,18 +30,20 @@ spark.conf.set("GROUP_DB_NAME.events", GROUP_DB_NAME)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Historic Bike data 
-# MAGIC ##### historic_bike_trip_b - bronze
-# MAGIC - Stream read historic bike data 
+# MAGIC ### Historic Bike data (bronze - historic_bike_trip_b )
 
 # COMMAND ----------
 
+# define schema 
 bronze_bike_schema = "started_at TIMESTAMP, ended_at TIMESTAMP, start_lat DOUBLE, start_lng DOUBLE, end_lat DOUBLE, end_lng DOUBLE"
+
+# define checkpoint location and delta path 
 bronze_bike_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_bike.checkpoint"
 bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 
 # COMMAND ----------
 
+# stream csv files to delta files 
 (spark.readStream
     .format("cloudFiles")
     .option("cloudFiles.format" , "csv")
@@ -64,6 +67,7 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- create hitoric_weather_b table
 # MAGIC CREATE OR REPLACE TABLE historic_bike_trip_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_bike.delta`
 
@@ -75,17 +79,20 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Historic Weather data
-# MAGIC ##### historic_weather_b - bronze
+# MAGIC ### Historic Weather data Table (bronze_historic_weather_b)
 
 # COMMAND ----------
 
+# define schema 
 bronze_weather_schema = "dt INTEGER, temp DOUBLE, feels_like DOUBLE, pressure INTEGER, humidity INTEGER, dew_point DOUBLE, uvi DOUBLE, clouds INTEGER, visibility INTEGER, wind_speed DOUBLE, wind_deg INTEGER, pop DOUBLE, snow_1h DOUBLE, id INTEGER, main STRING, description STRING, icon STRING, loc STRING, lat DOUBLE, lon DOUBLE, timezone STRING, timezone_offset INTEGER, rain_1h DOUBLE"
+
+# define checkpoint location and delta path 
 bronze_weather_checkPoint = f"{GROUP_DATA_PATH}bronze_historic_weather.checkpoint"
 bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 
 # COMMAND ----------
 
+# stream csv files to delta files 
 (spark.readStream
  .format("cloudFiles")
  .option("cloudFiles.format", "csv")
@@ -110,6 +117,7 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- create hitoric_weather_b table
 # MAGIC CREATE OR REPLACE TABLE historic_weather_b AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/bronze_historic_weather.delta`
 
@@ -158,10 +166,11 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### bike weather silver table
+# MAGIC ### Net change table (Silver - train_bike_weather_netChange_s)
 
 # COMMAND ----------
 
+# define and register function 
 import holidays
 from datetime import date
 
@@ -176,6 +185,7 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- Create net change table using historic_bike_trip_b
 # MAGIC CREATE OR REPLACE TEMP VIEW time_and_netChange_G10_db AS 
 # MAGIC SELECT
 # MAGIC main_time as ts,
@@ -204,6 +214,7 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- join net change table and weather table 
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_netChange_G10_db AS 
 # MAGIC SELECT B.ts, year, month, dayofmonth, dayofweek, B.hour, feels_like, rain_1h , description, isHoliday(year(B.ts), month, day(B.ts)) AS holiday, net_change 
 # MAGIC FROM time_and_netChange_G10_db AS B 
@@ -217,7 +228,10 @@ spark.udf.register("isHoliday", isHoliday)
 
 # COMMAND ----------
 
+# define delta path
 silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta/"
+
+# write delta file
 (spark.table("time_weather_netChange_G10_db")
     .write
     .format("delta")
@@ -228,6 +242,7 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- create train_bike_weather_netChange_s 
 # MAGIC CREATE OR REPLACE TABLE train_bike_weather_netChange_s AS 
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/silver_historic_bike_weather.delta/`
 

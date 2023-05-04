@@ -156,16 +156,6 @@ display(df)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT month, count(*) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2022
-# MAGIC GROUP BY month
-# MAGIC SORT BY month
-# MAGIC
-# MAGIC -- Highest use in the Summer, then Fall / Spring, then Winter
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC <h6> Find total number of trips in each month for the year 2022</h6>
 
@@ -176,6 +166,11 @@ display(df)
 # MAGIC WHERE year == 2022
 # MAGIC GROUP BY month
 # MAGIC SORT BY count DESC
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Isolate bike trips in 2023</h6>
 
 # COMMAND ----------
 

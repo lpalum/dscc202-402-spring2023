@@ -147,8 +147,8 @@ print(f"Loading registered model version from URI: '{model_production_uri}'")
 # DBTITLE 1,Hyperparameter Tuning
 # Set up parameter grid
 param_grid = {  
-    'changepoint_prior_scale': [0.01],   # [0.001, 0.01, 0.1, 0.5]
-    'seasonality_prior_scale': [0.1],    # [0.01, 0.1, 1.0, 10.0]
+    'changepoint_prior_scale': [0.001],   # [0.001, 0.01, 0.1, 0.5]
+    'seasonality_prior_scale': [0.01],    # [0.01, 0.1, 1.0, 10.0]
     'seasonality_mode': ['additive', 'multiplicative']
 }
 

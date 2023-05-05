@@ -40,9 +40,6 @@ data = (spark.read
     .format("delta")
     .load(SOURCE_DATA))
 
-
-#df = sample_df.toPandas()
-
 ## Helper routine to extract the parameters that were used to train a specific instance of the model
 def extract_params(pr_model):
     return {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
@@ -57,9 +54,7 @@ print(df)
 
 # COMMAND ----------
 
-#df = df[["rounded_started_at", "net_hour_change"]]
-
-
+#train test split
 train_data = df.sample(frac=0.8, random_state=42)
 test_data = df.drop(train_data.index)
 x_train, y_train, x_test, y_test = train_data["ds"], train_data["y"], test_data["ds"], test_data["y"]

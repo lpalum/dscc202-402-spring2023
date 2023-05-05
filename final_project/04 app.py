@@ -1,4 +1,8 @@
 # Databricks notebook source
+pip install folium
+
+# COMMAND ----------
+
 # MAGIC %run ./includes/includes
 
 # COMMAND ----------

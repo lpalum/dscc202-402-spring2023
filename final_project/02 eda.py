@@ -33,75 +33,9 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC #INSIGHTS ON BRONZE DATA SOURCES USING PANDAS PROFILING
-
-# COMMAND ----------
-
 from pyspark.sql.functions import col, from_unixtime
 import pandas as pd
-import pandas_profiling
 import plotly.express as px
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Weather Profiling
-
-# COMMAND ----------
-
-df = spark.table("historic_weather_b")
-displayHTML(pandas_profiling.ProfileReport(df.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Bike Trip Profiling
-
-# COMMAND ----------
-
-df = spark.table("historic_bike_trip_b")
-displayHTML(pandas_profiling.ProfileReport(df.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Weather Profiling
-
-# COMMAND ----------
-
-dfWeather = spark.read.load("/FileStore/tables/bronze_nyc_weather.delta")
-displayHTML(pandas_profiling.ProfileReport(dfWeather.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Station Status Profiling
-
-# COMMAND ----------
-
-#Find Station ID to use to filter in Station Status Table
-
-from pyspark.sql.functions import col
-dfInfo = spark.read.load(BRONZE_STATION_INFO_PATH).filter((col("name") == GROUP_STATION_ASSIGNMENT))
-display(dfInfo)
-
-
-# COMMAND ----------
-
-#station id = 66dc686c-0aca-11e7-82f6-3863bb44ef7c
-#filter for only statuses with this ID
-
-from pyspark.sql.functions import col, from_unixtime
-dfStatus = spark.read.load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == '66dc686c-0aca-11e7-82f6-3863bb44ef7c')
-display (dfStatus.withColumn("DateTime", from_unixtime(col("last_reported"))))
-
-
-# COMMAND ----------
-
-#run pandas profiling on df with only data from our station
-
-displayHTML(pandas_profiling.ProfileReport(dfStatus.toPandas()).html)
 
 # COMMAND ----------
 

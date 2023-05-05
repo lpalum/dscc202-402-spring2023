@@ -31,7 +31,7 @@ spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 # COMMAND ----------
 
 # Get and display current timestamp
-current_time = spark.sql("select current_timestamp()")
+current_time = spark.sql("select date_format(current_timestamp(), 'yyyy-MM-dd HH:mm:ss') as current_time")
 unixTime = spark.sql("select to_unix_timestamp(date_trunc('hour', current_timestamp()))").collect()[0][0]
 displayHTML("<h2>Current Timestamp:</h2>")
 display(current_time)
@@ -42,7 +42,7 @@ display(current_time)
 client = MlflowClient()
 prod_model = client.get_latest_versions(GROUP_MODEL_NAME, stages=["Production"])
 staging_model = client.get_latest_versions(GROUP_MODEL_NAME, stages=["Staging"])
-displayHTML(f"<h2>Production Model version:</h2><h3>The latest production version of the model {GROUP_MODEL_NAME} is {prod_model[0].version}.</h3><h2>Staging Model version:</h2><h3>The latest staging version of the model {GROUP_MODEL_NAME} is {staging_model[0].version}.</h3>")
+displayHTML(f"<br><h2>Production Model version:</h2><h3>The latest production version of the model {GROUP_MODEL_NAME} is {prod_model[0].version}.</h3><h2>Staging Model version:</h2><h3>The latest staging version of the model {GROUP_MODEL_NAME} is {staging_model[0].version}.</h3>")
 
 # COMMAND ----------
 
@@ -79,6 +79,42 @@ displayHTML(f"<br><h2>Docks and Bikes Information:</h2><h3>Last reported time: {
 
 # MAGIC %md
 # MAGIC ### Data Preprocessing for Test Data
+
+# COMMAND ----------
+
+# create and register function
+import holidays
+from datetime import date
+us_holidays = holidays.US()
+
+@udf
+def isHoliday(year, month, day):
+    return date(year, month, day) in us_holidays
+spark.udf.register("isHoliday", isHoliday)
+
+# COMMAND ----------
+
+# create weather_tmp_G10_db from delta file
+spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView("weather_tmp_G10_db")
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC -- Create time_weather_G10_db which will be used for inference 
+# MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
+# MAGIC SELECT 
+# MAGIC time as ts,
+# MAGIC year(time) as year,
+# MAGIC month(time) as month,
+# MAGIC dayofmonth(time) as dayofmonth,
+# MAGIC dayofweek(time) AS dayofweek,
+# MAGIC HOUR(time) AS hour,
+# MAGIC feels_like,
+# MAGIC COALESCE(`rain.1h`, 0) as rain_1h,
+# MAGIC explode(weather.description) AS description,
+# MAGIC isHoliday(year(time), month(time), day(time)) AS holiday
+# MAGIC FROM weather_tmp_G10_db
+# MAGIC ORDER BY time
 
 # COMMAND ----------
 

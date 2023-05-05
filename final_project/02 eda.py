@@ -141,11 +141,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
-# MAGIC GROUP BY year
-# MAGIC SORT BY year
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_per_year AS(
+# MAGIC     SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
+# MAGIC     GROUP BY year
+# MAGIC     SORT BY year
+# MAGIC );
 # MAGIC
 # MAGIC --number of bike trips by year
+
+# COMMAND ----------
+
+tpy = spark.table("trips_per_year")
+pd_tpy = tpy.toPandas()
+pd_tpy.year = pd_tpy.year.astype(str)
+
+fig = px.bar(data_frame=pd_tpy, x='year', y='count', title='Bike Trips per Year', labels={'year':'Year', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -160,10 +171,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2022
-# MAGIC GROUP BY month
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_in_2022 AS(
+# MAGIC   SELECT month, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE year == 2022
+# MAGIC   GROUP BY month
+# MAGIC   SORT BY month
+# MAGIC );
+
+# COMMAND ----------
+
+tpy22 = spark.table("trips_in_2022")
+pd_t22 = tpy22.toPandas()
+pd_t22.month = pd_t22.month.astype(str)
+
+fig = px.bar(data_frame=pd_t22, x='month', y='count', title='Bike Trips per Month (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'})
+fig.show()
+
 
 # COMMAND ----------
 
@@ -173,10 +196,21 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2023
-# MAGIC GROUP BY month
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_in_2023 AS(
+# MAGIC   SELECT month, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE year == 2023
+# MAGIC   GROUP BY month
+# MAGIC   SORT BY month
+# MAGIC );  
+
+# COMMAND ----------
+
+tpy23 = spark.table("trips_in_2023")
+pd_t23 = tpy23.toPandas()
+pd_t23.month = pd_t23.month.astype(str)
+
+fig = px.bar(data_frame=pd_t23, x='month', y='count', title='Bike Trips per Month (2023)', labels={'month':'Month', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -186,10 +220,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, year, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE month IN (1,2,3) AND year IN (2022, 2023)
-# MAGIC GROUP BY month, year
-# MAGIC SORT BY month, year
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_year_comparison AS(
+# MAGIC   SELECT month, year, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE month IN (1,2,3) AND year IN (2022, 2023)
+# MAGIC   GROUP BY month, year
+# MAGIC   SORT BY month, year
+# MAGIC );
+
+# COMMAND ----------
+
+tpyc = spark.table("trips_year_comparison")
+pd_tComp = tpyc.toPandas()
+pd_tComp.month = pd_tComp.month.astype(str)
+
+fig = px.histogram(data_frame=pd_tComp, x='month', y='count', title='Comparison of Number of Bike Trips in the First Three months of 2022 and 2023', 
+    labels={'month':'Month', 'count':'Number of Bike Trips'}, barmode = 'group', color = 'year')
+fig.show()
 
 # COMMAND ----------
 
@@ -198,7 +244,7 @@ display(df)
 # MAGIC </br>
 # MAGIC <ul>
 # MAGIC <li>Bike use higher in the warmer (Summer, Fall, Spring) months</li>
-# MAGIC <li>Total number of rides in the first 3 moths of 2023 higher than total rides for the first 3 months of 2022. This could suggest that use of citibikes and the station is growing</li>
+# MAGIC <li>Total number of rides in the first 3 moths of 2023 higher than total rides for the first 3 months of 2022. This could suggest that use of citibikes and the station is growing, or alternatively, could just be due to a milder winter</li>
 
 # COMMAND ----------
 
@@ -483,10 +529,6 @@ spark.udf.register("tempRange", tempRange)
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC #STATION TRENDS
 
@@ -538,7 +580,3 @@ import json
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
-
-# COMMAND ----------
-
-

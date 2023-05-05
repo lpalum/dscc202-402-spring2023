@@ -3,7 +3,7 @@
 
 # COMMAND ----------
 
-from pyspark.sql.functions import to_date, col,lit
+from pyspark.sql.functions import *
 spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
 start_date = str(dbutils.widgets.get('01.start_date'))
@@ -150,53 +150,6 @@ display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("na
 
 # DBTITLE 1,Display the current (within the hour) NYC Weather Information
 # display(spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).sort(col("time").desc()))
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Table for Inference
-
-# COMMAND ----------
-
-# create and register function
-import holidays
-from datetime import date
-
-us_holidays = holidays.US()
-
-@udf
-def isHoliday(year, month, day):
-    return date(year, month, day) in us_holidays
-spark.udf.register("isHoliday", isHoliday)
-
-# COMMAND ----------
-
-# create weather_tmp_G10_db from delta file
-spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView("weather_tmp_G10_db")
-
-# COMMAND ----------
-
-# MAGIC %sql 
-# MAGIC -- Create time_weather_G10_db which will be used for inference 
-# MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
-# MAGIC SELECT 
-# MAGIC time as ts,
-# MAGIC year(time) as year,
-# MAGIC month(time) as month,
-# MAGIC dayofmonth(time) as dayofmonth,
-# MAGIC dayofweek(time) AS dayofweek,
-# MAGIC HOUR(time) AS hour,
-# MAGIC feels_like,
-# MAGIC COALESCE(`rain.1h`, 0) as rain_1h,
-# MAGIC explode(weather.description) AS description,
-# MAGIC isHoliday(year(time), month(time), day(time)) AS holiday
-# MAGIC FROM weather_tmp_G10_db
-# MAGIC ORDER BY time 
-
-# COMMAND ----------
-
-# %sql
-# SELECT * FROM time_weather_G10_db
 
 # COMMAND ----------
 

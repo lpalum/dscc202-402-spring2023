@@ -285,22 +285,43 @@ spark.udf.register("dayNumber", dayNumber)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT DayName, DayNumber, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY DayName, DayNumber
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_per_day AS(
+# MAGIC   SELECT DayName, DayNumber, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY DayName, DayNumber
+# MAGIC   SORT BY DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+tpd = spark.table("trips_per_day")
+pd_tpd = tpd.toPandas()
+#pd_tpd.DayNumber = pd_tpd.DayNumber.astype(str)
+
+fig = px.bar(data_frame=pd_tpd, x='DayName', y='count', title='Bike Trips per Day of Week (2022)', labels={'DayName':'Day', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, DayName, DayNumber, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY month, DayNumber, DayName
-# MAGIC SORT BY month, DayNumber
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_day_month AS(
+# MAGIC   SELECT month, DayName, DayNumber, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY month, DayNumber, DayName
+# MAGIC   SORT BY month, DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+tpdm = spark.table("trips_day_month")
+pd_tpdm = tpdm.toPandas()
+
+fig = px.bar(data_frame=pd_tpdm, x='month', y='count', title='Bike Trips per Month and Day (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'}, color = 'DayName')
+fig.show()
 
 # COMMAND ----------
 
@@ -324,12 +345,22 @@ spark.udf.register("dayNumber", dayNumber)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT hour, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY hour
-# MAGIC SORT BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_by_hour AS(
+# MAGIC   SELECT hour, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY hour
+# MAGIC   SORT BY hour
+# MAGIC );
+
+# COMMAND ----------
+
+tpd = spark.table("trips_by_hour")
+pd_tpd = tpd.toPandas()
+
+fig = px.bar(data_frame=pd_tpd, x='hour', y='count', title='Bike Trips by Hour of the Day (2022)', labels={'hour':'Hour of Day', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 

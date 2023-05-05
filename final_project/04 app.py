@@ -285,10 +285,6 @@ df_forecast
 
 # COMMAND ----------
 
-dbutils.fs.rm(gold_monitor_forecast, recurse = True)
-
-# COMMAND ----------
-
 # define delta path 
 gold_monitor_forecast = f"{GROUP_DATA_PATH}gold_monitor_forecast.delta"
 
@@ -335,8 +331,9 @@ display(bike_forecast[['ds', 'bikes_available']].head(int(hours_to_forecast)))
 
 # Highlight any stock out or full station conditions over the predicted period
 bike_forecast['station_capacity'] = station_capacity
+bike_forecast['lower_bound'] = 0
 bike_forecast['ds'] = pd.to_datetime(bike_forecast['ds'], format="%Y-%m-%d %H:%M:%S")
-fig = px.line(bike_forecast, x='ds', y=['bikes_available','station_capacity'], color_discrete_sequence=['blue','black'])
+fig = px.line(bike_forecast, x='ds', y=['bikes_available','station_capacity', 'lower_bound'], color_discrete_sequence=['blue','black', 'black'])
 fig.update_layout(title=f'{GROUP_STATION_ASSIGNMENT} bike forecast')
 fig.update_xaxes(title_text='time')
 fig.update_yaxes(title_text='bikes_available')

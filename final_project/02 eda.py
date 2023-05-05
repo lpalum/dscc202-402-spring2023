@@ -370,12 +370,22 @@ fig.show()
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, DayName, DayNumber, hour, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY month, DayNumber, DayName, hour
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_hour_day AS(
+# MAGIC   SELECT month, DayName, DayNumber, hour, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY month, DayNumber, DayName, hour
+# MAGIC   SORT BY DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+thd = spark.table("trips_hour_day")
+pd_thd = thd.toPandas()
+
+fig = px.bar(data_frame=pd_thd, x='DayName', y='count', title='Bike Trips by Hour of the Day (2022)', labels={'DayName':'Day of the Week', 'count':'Number of Bike Trips'}, color = 'hour')
+fig.show()
 
 # COMMAND ----------
 
@@ -383,11 +393,10 @@ fig.show()
 # MAGIC ##Takeaways from Exploration of Hourly Bike Use
 # MAGIC </br>
 # MAGIC <ul>
-# MAGIC <li> Top hour for bike use is 5:00 PM </li>
-# MAGIC <li> Top time of day for bike use is afternoon / evening from 2:00 PM - 6:00 PM </li>
-# MAGIC <li> 7:00 AM - 9:00 AM also are in the top ten </li>
-# MAGIC <li> 1:00 PM is in the top 10 as well, which points to the use of bikes for lunch time trips </li>
-# MAGIC <li> These trends suggest that bikes are heavily used by commuters to go to/from work/school/etc.</li>
+# MAGIC <li> Top hour for bike use is 9:00 PM </li>
+# MAGIC <li> Top time of day for bike use is night from 7:00 PM - 10:00 PM </li>
+# MAGIC <li> 11:00 AM - 1:00 PM also are in the top ten, which points to the use of bikes for lunch time trips </li>
+# MAGIC <li> These trends suggest that bikes are heavily used by people going out at nighttime - which makes sense as MSG and Penn Station are both locate right by the station</li>
 # MAGIC </ul>  
 
 # COMMAND ----------

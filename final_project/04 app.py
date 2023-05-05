@@ -1,5 +1,4 @@
 # Databricks notebook source
-
 pip install folium
 
 # COMMAND ----------
@@ -14,9 +13,9 @@ spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
 # COMMAND ----------
 
+# DBTITLE 0,YOUR APPLICATIONS CODE HERE...
 =======
 
-# DBTITLE 0,YOUR APPLICATIONS CODE HERE...
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
 hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
@@ -77,7 +76,6 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 
 # MAGIC %md
 # MAGIC ## Table for Inference 
-
 
 # COMMAND ----------
 
@@ -178,10 +176,6 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # MAGIC ORDER BY ts DESC 
 # MAGIC )
 # MAGIC WHERE rn > 1
-
-
-
-
 
 # COMMAND ----------
 

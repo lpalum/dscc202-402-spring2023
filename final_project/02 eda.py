@@ -13,11 +13,6 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SHOW TABLES;
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC CREATE TABLE IF NOT EXISTS historic_weather_b
 # MAGIC USING DELTA LOCATION 'dbfs:/FileStore/tables/G10/bronze_historic_weather.delta';
 # MAGIC
@@ -33,75 +28,9 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC #INSIGHTS ON BRONZE DATA SOURCES USING PANDAS PROFILING
-
-# COMMAND ----------
-
 from pyspark.sql.functions import col, from_unixtime
 import pandas as pd
-import pandas_profiling
 import plotly.express as px
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Weather Profiling
-
-# COMMAND ----------
-
-df = spark.table("historic_weather_b")
-displayHTML(pandas_profiling.ProfileReport(df.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Bike Trip Profiling
-
-# COMMAND ----------
-
-df = spark.table("historic_bike_trip_b")
-displayHTML(pandas_profiling.ProfileReport(df.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Historic Weather Profiling
-
-# COMMAND ----------
-
-dfWeather = spark.read.load("/FileStore/tables/bronze_nyc_weather.delta")
-displayHTML(pandas_profiling.ProfileReport(dfWeather.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC Station Status Profiling
-
-# COMMAND ----------
-
-#Find Station ID to use to filter in Station Status Table
-
-from pyspark.sql.functions import col
-dfInfo = spark.read.load(BRONZE_STATION_INFO_PATH).filter((col("name") == GROUP_STATION_ASSIGNMENT))
-display(dfInfo)
-
-
-# COMMAND ----------
-
-#station id = 66dc686c-0aca-11e7-82f6-3863bb44ef7c
-#filter for only statuses with this ID
-
-from pyspark.sql.functions import col, from_unixtime
-dfStatus = spark.read.load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == '66dc686c-0aca-11e7-82f6-3863bb44ef7c')
-display (dfStatus.withColumn("DateTime", from_unixtime(col("last_reported"))))
-
-
-# COMMAND ----------
-
-#run pandas profiling on df with only data from our station
-
-displayHTML(pandas_profiling.ProfileReport(dfStatus.toPandas()).html)
 
 # COMMAND ----------
 
@@ -320,7 +249,7 @@ fig.show()
 tpdm = spark.table("trips_day_month")
 pd_tpdm = tpdm.toPandas()
 
-fig = px.bar(data_frame=pd_tpdm, x='month', y='count', title='Bike Trips per Month and Day (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'}, color = 'DayName')
+fig = px.bar(data_frame=pd_tpdm, x='month', y='count', title='Bike Trips by Month and Day of the Week (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'}, color = 'DayName')
 fig.show()
 
 # COMMAND ----------
@@ -365,18 +294,18 @@ fig.show()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC <h6>Investigate correlation between day and month (not that helpful)</h6>
+# MAGIC <h6>Investigate correlation between day and hour</h6>
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TEMP VIEW trips_hour_day AS(
-# MAGIC   SELECT month, DayName, DayNumber, hour, count(ride_id) as count FROM(
+# MAGIC   SELECT DayName, DayNumber, hour, count(ride_id) as count FROM(
 # MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
 # MAGIC     WHERE year == 2022
 # MAGIC     )
-# MAGIC   GROUP BY month, DayNumber, DayName, hour
-# MAGIC   SORT BY DayNumber
+# MAGIC   GROUP BY DayName, DayNumber, hour
+# MAGIC   SORT BY DayNumber, hour
 # MAGIC );
 
 # COMMAND ----------
@@ -431,14 +360,24 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT holiday, avg(count) as count FROM(
-# MAGIC    SELECT date, count(*) as count , max(holiday) as holiday
-# MAGIC    FROM (
-# MAGIC      SELECT concat(year, " ", month, " ", day) AS date, isHoliday(year, month, day) AS holiday, * FROM date_bike_G10_db
-# MAGIC    )
-# MAGIC GROUP BY date
-# MAGIC  )
-# MAGIC GROUP BY holiday
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_holiday AS(
+# MAGIC   SELECT holiday, avg(count) as count FROM(
+# MAGIC     SELECT date, count(*) as count , max(holiday) as holiday
+# MAGIC     FROM (
+# MAGIC       SELECT concat(year, " ", month, " ", day) AS date, isHoliday(year, month, day) AS holiday, * FROM date_bike_G10_db
+# MAGIC     )
+# MAGIC   GROUP BY date
+# MAGIC   )
+# MAGIC   GROUP BY holiday
+# MAGIC );
+
+# COMMAND ----------
+
+th = spark.table("trips_holiday")
+pd_th = th.toPandas()
+
+fig = px.bar(data_frame=pd_th, x='holiday', y='count', title='Average Bike Trips on Holidays vs Non-Holidays (2022)', labels={'holiday':'Is It a Holiday?', 'count':'Number of Bike Trips'}, color = "holiday")
+fig.show()
 
 # COMMAND ----------
 
@@ -486,22 +425,24 @@ spark.udf.register("isHoliday", isHoliday)
 # MAGIC     ON W.time BETWEEN B.started_at AND B.ended_at
 # MAGIC     );
 # MAGIC     
-# MAGIC SELECT COUNT(ride_id) as count, description
-# MAGIC FROM historic_bike_weather_G10_db
-# MAGIC  GROUP BY description
-# MAGIC  ORDER BY count DESC;
-# MAGIC  
-# MAGIC  --- Most rides occur when there is no precipitation
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT COUNT(ride_id) as count, description, dayNumber, DayName
-# MAGIC FROM historic_bike_weather_G10_db
-# MAGIC  GROUP BY dayNumber, DayName, description
-# MAGIC  ORDER BY DayName
-# MAGIC  
-# MAGIC  --rides based on conditions versus day of the week
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_by_weather AS(
+# MAGIC   SELECT COUNT(ride_id) as count, description
+# MAGIC   FROM historic_bike_weather_G10_db
+# MAGIC   GROUP BY description
+# MAGIC   ORDER BY count DESC
+# MAGIC );
+
+# COMMAND ----------
+
+tw = spark.table("trips_by_weather")
+pd_tw = tw.toPandas()
+
+fig = px.bar(data_frame=pd_tw, x='description', y='count', title='Number of Bike Trips by Weather Description (2022)', labels={'description':'Weather Description', 'count':'Number of Bike Trips'}, color = "description")
+fig.show()
 
 # COMMAND ----------
 
@@ -532,17 +473,27 @@ spark.udf.register("tempRange", tempRange)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC <h6>Determine total number of rides for each temperature range</h6>
+# MAGIC <h6>Determine total number of rides for each temperature range (feels like)</h6>
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT COUNT(ride_id) as count, tempRange(feels_like_F) as feels_like_range FROM (
-# MAGIC     SELECT ride_id, kelvinToFahrenheit(feels_like) as feels_like_F
-# MAGIC       FROM historic_bike_weather_G10_db
-# MAGIC )
-# MAGIC  GROUP BY feels_like_range
-# MAGIC  ORDER BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_by_temp AS(
+# MAGIC   SELECT COUNT(ride_id) as count, tempRange(feels_like_F) as feels_like_range FROM (
+# MAGIC       SELECT ride_id, kelvinToFahrenheit(feels_like) as feels_like_F
+# MAGIC         FROM historic_bike_weather_G10_db
+# MAGIC   )
+# MAGIC   GROUP BY feels_like_range
+# MAGIC   ORDER BY feels_like_range
+# MAGIC );
+
+# COMMAND ----------
+
+ttemp = spark.table("trips_by_temp")
+pd_ttemp = ttemp.toPandas()
+
+fig = px.bar(data_frame=pd_ttemp, x='feels_like_range', y='count', title='Number of Bike Trips by Temperature (2022)', labels={'feels_like_range':'Temperature (Range)', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -552,10 +503,20 @@ spark.udf.register("tempRange", tempRange)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT COUNT(ride_id) as count, tempRange(pop *100) as chance_of_precip
-# MAGIC       FROM historic_bike_weather_G10_db
-# MAGIC  GROUP BY chance_of_precip
-# MAGIC  ORDER BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_by_precip AS(
+# MAGIC       SELECT COUNT(ride_id) as count, tempRange(pop *100) as chance_of_precip
+# MAGIC             FROM historic_bike_weather_G10_db
+# MAGIC       GROUP BY chance_of_precip
+# MAGIC       ORDER BY chance_of_precip
+# MAGIC );
+
+# COMMAND ----------
+
+tprecip = spark.table("trips_by_precip")
+pd_tprecip = tprecip.toPandas()
+
+fig = px.bar(data_frame=pd_tprecip, x='chance_of_precip', y='count', title='Number of Bike Trips by Chance of Precipitation (2022)', labels={'chance_of_precip':'Chance of Precipitation (%)', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -580,13 +541,29 @@ spark.udf.register("tempRange", tempRange)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT start_station_name, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022 
-# MAGIC     AND start_station_name != '8 Ave & W 33 St'
-# MAGIC   )
-# MAGIC GROUP BY start_station_name
-# MAGIC SORT BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_start_station AS(
+# MAGIC   SELECT start_station_name, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022 
+# MAGIC       AND start_station_name != '8 Ave & W 33 St'
+# MAGIC     )
+# MAGIC   GROUP BY start_station_name
+# MAGIC   SORT BY count DESC
+# MAGIC );
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Plot most popular originiation stations (with count > 1,000)</h6>
+
+# COMMAND ----------
+
+tstart = spark.table("trips_start_station").filter("count > 1000")
+#tstart = tstart
+pd_tstart = tstart.toPandas()
+
+fig = px.bar(data_frame=pd_tstart, x='start_station_name', y='count', title='Most Popular Origination Stations for Trips Ending at Assigned Station', labels={'start_station_name':'Start Station Name', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -596,13 +573,28 @@ spark.udf.register("tempRange", tempRange)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT end_station_name, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022 
-# MAGIC     AND end_station_name != '8 Ave & W 33 St'
-# MAGIC   )
-# MAGIC GROUP BY end_station_name
-# MAGIC SORT BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_end_station AS(
+# MAGIC   SELECT end_station_name, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022 
+# MAGIC       AND end_station_name != '8 Ave & W 33 St'
+# MAGIC     )
+# MAGIC   GROUP BY end_station_name
+# MAGIC   SORT BY count DESC
+# MAGIC );
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC <h6>Plot most popular destination stations (with count > 1,000)</h6>
+
+# COMMAND ----------
+
+tend = spark.table("trips_end_station").filter("count > 1000")
+pd_tend = tend.toPandas()
+
+fig = px.bar(data_frame=pd_tend, x='end_station_name', y='count', title='Most Popular Destination Stations for Trips Originating at Assigned Station', labels={'end_station_name':'End Station Name', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -610,8 +602,8 @@ spark.udf.register("tempRange", tempRange)
 # MAGIC ##Takeaways from Exploration of Station Data
 # MAGIC </br>
 # MAGIC <ul>
-# MAGIC <li>3.71% of rides that ended at our station originated at 11 Ave & W 41 St</li>
-# MAGIC <li>3.78% of rides that began at our station ended at W 35 St & 8 Ave</li>
+# MAGIC <li>3,168(3.71%) of rides that ended at our station originated at 11 Ave & W 41 St</li>
+# MAGIC <li>3,196(3.78%) of rides that began at our station ended at W 35 St & 8 Ave</li>
 # MAGIC <li>These are both almost double values of the stations with the next highest number of ride originations / destinations</li>
 
 # COMMAND ----------

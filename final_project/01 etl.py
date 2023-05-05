@@ -138,8 +138,8 @@ display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("na
 # COMMAND ----------
 
 # DBTITLE 1,Display the Bike Station Status Information
-statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", col("last_reported").cast("timestamp")).sort(col("ts").desc())
-display(statusDf)
+# statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", col("last_reported").cast("timestamp")).sort(col("ts").desc())
+# display(statusDf)
 
 # COMMAND ----------
 

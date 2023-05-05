@@ -121,6 +121,11 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC SELECT * FROM real_netChange_G10_db
+
+# COMMAND ----------
+
 # write a table to delta path 
 (
     spark.table("real_netChange_G10_db")
@@ -142,6 +147,40 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 
 # %sql
 # SELECT * FROM real_netChange_g
+
+# COMMAND ----------
+
+# get current time
+spark.conf.set("spark.sql.session.timeZone", "America/New_York")
+
+
+display(spark.sql("select date_trunc('hour', current_timestamp()) as current_time"))
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Forecast of Bike Inventory
+
+# COMMAND ----------
+
+from pyspark.sql.functions import date_format
+statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", date_format(col("last_reported").cast("timestamp"), 'yyyy-MM-dd HH:00:00')).sort(col("ts").desc())
+statusDf = statusDf.select("num_docks_available" ,"num_bikes_available","ts").limit(1)
+
+# COMMAND ----------
+
+row = statusDf.collect()[0]
+num_docks_available = row[0]
+num_bikes_available = row[1]
+last_reported_time = row[2]
+station_capacity = 96
+
+print("last_reported_time:" ,last_reported_time)
+print("num docks: ", num_docks_available)
+print("num bikes: ",num_bikes_available)
+print("station capacity: ", station_capacity)
+
 
 # COMMAND ----------
 

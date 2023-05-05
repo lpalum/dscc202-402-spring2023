@@ -31,7 +31,6 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 # MAGIC
 # MAGIC SELECT * FROM historic_bike_trip_b
 
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -532,7 +531,6 @@ spark.udf.register("tempRange", tempRange)
 # MAGIC <li>3.71% of rides that ended at our station originated at 11 Ave & W 41 St</li>
 # MAGIC <li>3.78% of rides that began at our station ended at W 35 St & 8 Ave</li>
 # MAGIC <li>These are both almost double values of the stations with the next highest number of ride originations / destinations</li>
-
 
 # COMMAND ----------
 

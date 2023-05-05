@@ -3,6 +3,14 @@
 
 # COMMAND ----------
 
+
+from pyspark.sql.functions import col
+spark.conf.set("spark.sql.session.timeZone", "America/New_York")
+
+# COMMAND ----------
+
+=======
+
 # DBTITLE 0,YOUR APPLICATIONS CODE HERE...
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
@@ -10,6 +18,9 @@ hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
 promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
 
 print(start_date,end_date,hours_to_forecast, promote_model)
+
+
+=======
 print("YOUR CODE HERE...")
 
 # COMMAND ----------
@@ -28,6 +39,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 
 # MAGIC %md
 # MAGIC ## Table for Inference 
+
 
 # COMMAND ----------
 
@@ -49,7 +61,7 @@ spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView
 
 # COMMAND ----------
 
-# MAGIC %sql
+# MAGIC %sql 
 # MAGIC -- Create time_weather_G10_db which will be used for inference 
 # MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
 # MAGIC SELECT 
@@ -129,10 +141,9 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # MAGIC )
 # MAGIC WHERE rn > 1
 
-# COMMAND ----------
 
-# MAGIC %sql 
-# MAGIC SELECT * FROM real_netChange_G10_db
+
+
 
 # COMMAND ----------
 
@@ -245,7 +256,42 @@ fig.show()
 
 # COMMAND ----------
 
+# get current time
+spark.conf.set("spark.sql.session.timeZone", "America/New_York")
+
+
+display(spark.sql("select date_trunc('hour', current_timestamp()) as current_time"))
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Forecast of Bike Inventory
+
+# COMMAND ----------
+
+from pyspark.sql.functions import date_format
+statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", date_format(col("last_reported").cast("timestamp"), 'yyyy-MM-dd HH:00:00')).sort(col("ts").desc())
+statusDf = statusDf.select("num_docks_available" ,"num_bikes_available","ts").limit(1)
+
+# COMMAND ----------
+
+row = statusDf.collect()[0]
+num_docks_available = row[0]
+num_bikes_available = row[1]
+last_reported_time = row[2]
+station_capacity = 96
+
+print("last_reported_time:" ,last_reported_time)
+print("num docks: ", num_docks_available)
+print("num bikes: ",num_bikes_available)
+print("station capacity: ", station_capacity)
+
+
+# COMMAND ----------
+
 import json
+
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))

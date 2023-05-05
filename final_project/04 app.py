@@ -1,4 +1,9 @@
 # Databricks notebook source
+
+pip install folium
+
+# COMMAND ----------
+
 # MAGIC %run ./includes/includes
 
 # COMMAND ----------
@@ -10,11 +15,6 @@ promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower(
 
 print(start_date,end_date,hours_to_forecast, promote_model)
 
-
-# COMMAND ----------
-
-
-pip install folium
 
 # COMMAND ----------
 

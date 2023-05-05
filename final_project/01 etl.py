@@ -4,6 +4,8 @@
 # COMMAND ----------
 
 from pyspark.sql.functions import to_date, col,lit
+spark.conf.set("spark.sql.session.timeZone", "America/New_York")
+
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
 hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
@@ -73,11 +75,6 @@ bronze_bike_delta = f"{GROUP_DATA_PATH}bronze_historic_bike.delta"
 
 # COMMAND ----------
 
-# %sql
-# SELECT * FROM historic_bike_trip_b
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ### Historic Weather data Table (bronze_historic_weather_b)
 
@@ -111,9 +108,6 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
  .awaitTermination()
 )
 
-
-
-
 # COMMAND ----------
 
 # MAGIC %sql
@@ -134,7 +128,7 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # DBTITLE 1,Display Bike Station Information
-# display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
+display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
 
 # COMMAND ----------
 
@@ -144,9 +138,8 @@ bronze_weather_delta = f"{GROUP_DATA_PATH}bronze_historic_weather.delta"
 # COMMAND ----------
 
 # DBTITLE 1,Display the Bike Station Status Information
-# statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH)
+# statusDf = spark.read.format("delta").load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == "66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", col("last_reported").cast("timestamp")).sort(col("ts").desc())
 # display(statusDf)
-
 
 # COMMAND ----------
 
@@ -180,7 +173,6 @@ us_holidays = holidays.US()
 def isHoliday(year, month, day):
     return date(year, month, day) in us_holidays
 spark.udf.register("isHoliday", isHoliday)
-
 
 # COMMAND ----------
 
@@ -229,7 +221,7 @@ spark.udf.register("isHoliday", isHoliday)
 # COMMAND ----------
 
 # define delta path
-silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta/"
+silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delta"
 
 # write delta file
 (spark.table("time_weather_netChange_G10_db")

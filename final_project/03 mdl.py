@@ -26,14 +26,16 @@ import numpy as np
 import itertools
 import logging
 import mlflow
-
 np.random.seed(12345)
-ARTIFACT_PATH = "G10_model"
 logging.getLogger("py4j").setLevel(logging.ERROR)
 
 # COMMAND ----------
 
-# DBTITLE 1,Load Dataset
+# MAGIC %md
+# MAGIC ### Load Dataset
+
+# COMMAND ----------
+
 # Load Dataset from silver table
 df = spark.sql('select * from train_bike_weather_netChange_s').toPandas()
 df
@@ -45,7 +47,11 @@ df.describe()
 
 # COMMAND ----------
 
-# DBTITLE 1,Data Preprocessing
+# MAGIC %md
+# MAGIC ### Data Preprocessing
+
+# COMMAND ----------
+
 # Rename the timestamp column to 'ds' and the target column to 'y'
 df = df.rename(columns={'ts': 'ds'}).rename(columns={'net_change': 'y'})
 
@@ -74,34 +80,7 @@ plt.show()
 
 # COMMAND ----------
 
-# DBTITLE 1,Create a Baseline Model
-# Create a Prophet model with all features as covariates + holidays
-baseline_model = Prophet()
-for feature in df.columns:
-    if feature != 'ds' and feature != 'y':
-        baseline_model.add_regressor(feature)
-baseline_model.add_country_holidays(country_name='US')
-
-# Fit the model on the training dataset
-baseline_model.fit(df)
-
-# Cross validation
-date_diff = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days
-initial_days = str(int(date_diff / 4)) + ' days'
-period_days = str(int(date_diff / 16)) + ' days'
-horizon_days = str(int(date_diff / 8)) + ' days'
-baseline_model_cv = cross_validation(model=baseline_model, initial=initial_days, period=period_days, horizon=horizon_days, parallel="threads")
-
-# Model performance metrics
-baseline_model_p = performance_metrics(baseline_model_cv, rolling_window=1)
-
-# Get the performance value
-print(f"MDAPE of baseline model: {baseline_model_p['mdape'].values[0]}")
-
-# COMMAND ----------
-
-# DBTITLE 1,Register the Baseline Model and Move it into Production
-# Helper routine to extract the parameters that were used to train a specific instance of the model
+# Helper routine to extract the parameters that are used to train a specific instance of the model
 def extract_params(pr_model):
     params = {attr: getattr(pr_model, attr) for attr in serialize.SIMPLE_ATTRIBUTES}
     del_list = ['Juneteenth National Independence Day (Observed)', "New Year's Day (Observed)", 'Independence Day (Observed)', 'Christmas Day (Observed)', 'Veterans Day (Observed)', 'Juneteenth National Independence Day', 'holiday']
@@ -112,39 +91,69 @@ def extract_params(pr_model):
             params['component_modes']['multiplicative'].remove(i)
     return params
 
-# Log the baseline model
-with mlflow.start_run():
-    metric_keys = ["mse", "rmse", "mae", "mdape", "smape", "coverage"]
-    metrics = {k: baseline_model_p[k].mean() for k in metric_keys}
-    params = extract_params(baseline_model)
+# COMMAND ----------
 
-    mlflow.prophet.log_model(baseline_model, artifact_path=ARTIFACT_PATH)
-    mlflow.log_params(params)
-    mlflow.log_metrics(metrics)
-
-    model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-    baseline_params = {'mdape': metrics['mdape'], 'model': model_uri}
-    print(json.dumps(baseline_params, indent=2))
-
-# Register the baseline model
-model_details = mlflow.register_model(model_uri=baseline_params['model'], name=ARTIFACT_PATH)
-
-client = MlflowClient()
-client.transition_model_version_stage(name=model_details.name, version=model_details.version, stage="Production")
-
-model_version_details = client.get_model_version(name=model_details.name, version=model_details.version)
-print(f"The current model stage is: '{model_version_details.current_stage}'")
-
-latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=["Production"])
-latest_production_version = latest_version_info[0].version
-print("The latest production version of the model '%s' is '%s'." % (ARTIFACT_PATH, latest_production_version))
-
-model_production_uri = "models:/{model_name}/production".format(model_name=ARTIFACT_PATH)
-print(f"Loading registered model version from URI: '{model_production_uri}'")
+# MAGIC %md
+# MAGIC ### Register a Baseline Model as Production if Not Exists
 
 # COMMAND ----------
 
-# DBTITLE 1,Hyperparameter Tuning
+# Build a Baseline Model only if it doesn't exist
+client = MlflowClient()
+try:
+    client.get_latest_versions(GROUP_MODEL_NAME, stages=["Production"])
+except:
+    # Create a Prophet model with all features as covariates + holidays
+    baseline_model = Prophet()
+    for feature in df.columns:
+        if feature != 'ds' and feature != 'y':
+            baseline_model.add_regressor(feature)
+    baseline_model.add_country_holidays(country_name='US')
+
+    # Fit the model on the training dataset
+    baseline_model.fit(df)
+
+    # Cross validation
+    date_diff = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days
+    initial_days = str(int(date_diff / 4)) + ' days'
+    period_days = str(int(date_diff / 16)) + ' days'
+    horizon_days = str(int(date_diff / 8)) + ' days'
+    baseline_model_cv = cross_validation(model=baseline_model, initial=initial_days, period=period_days, horizon=horizon_days, parallel="threads")
+
+    # Model performance metrics
+    baseline_model_p = performance_metrics(baseline_model_cv, rolling_window=1)
+
+    # Get the performance value
+    print(f"MAE of baseline model: {baseline_model_p['mae'].values[0]}")
+
+    # Log the baseline model
+    with mlflow.start_run():
+        metric_keys = ["mse", "rmse", "mae", "mdape", "smape", "coverage"]
+        metrics = {k: baseline_model_p[k].mean() for k in metric_keys}
+        params = extract_params(baseline_model)
+
+        mlflow.prophet.log_model(baseline_model, artifact_path=GROUP_MODEL_NAME)
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
+
+        model_uri = mlflow.get_artifact_uri(GROUP_MODEL_NAME)
+        baseline_params = {'mae': metrics['mae'], 'model': model_uri}
+        print(json.dumps(baseline_params, indent=2))
+
+    # Register the baseline model and move it to production
+    model_details = mlflow.register_model(model_uri=baseline_params['model'], name=GROUP_MODEL_NAME)
+    client.transition_model_version_stage(name=model_details.name, version=model_details.version, stage="Production")
+    
+    model_version_details = client.get_model_version(name=model_details.name, version=model_details.version)
+    print(f"The current version of the model is: {model_version_details.version}. The stage is: '{model_version_details.current_stage}'")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Hyperparameter Tuning
+
+# COMMAND ----------
+
 # Set up parameter grid
 param_grid = {  
     'changepoint_prior_scale': [0.001],   # [0.001, 0.01, 0.1, 0.5]
@@ -157,8 +166,8 @@ all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_
 
 print(f"Total training runs {len(all_params)}")
 
-# Create a list to store MDAPE values for each combination
-mdapes = []
+# Create a list to store MAE values for each combination
+maes = []
 
 # Use cross validation to evaluate all parameters
 for params in all_params:
@@ -172,6 +181,10 @@ for params in all_params:
         m.fit(df)
 
         # Cross-validation
+        date_diff = (datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")).days
+        initial_days = str(int(date_diff / 4)) + ' days'
+        period_days = str(int(date_diff / 16)) + ' days'
+        horizon_days = str(int(date_diff / 8)) + ' days'
         df_cv = cross_validation(model=m, initial=initial_days, period=period_days, horizon=horizon_days, parallel="threads")
         # Model performance
         df_p = performance_metrics(df_cv, rolling_window=1)
@@ -182,42 +195,36 @@ for params in all_params:
         print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
         print(f"Logged Params: \n{json.dumps(params, indent=2)}")
 
-        mlflow.prophet.log_model(m, artifact_path=ARTIFACT_PATH)
+        mlflow.prophet.log_model(m, artifact_path=GROUP_MODEL_NAME)
         mlflow.log_params(params)
         mlflow.log_metrics(metrics)
-        model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+        model_uri = mlflow.get_artifact_uri(GROUP_MODEL_NAME)
         print(f"Model artifact logged to: {model_uri}")
 
         # Save model performance metrics for this combination of hyper parameters
-        mdapes.append((df_p['mdape'].values[0], model_uri))
+        maes.append((df_p['mae'].values[0], model_uri))
 
 # COMMAND ----------
 
 # Tuning results
 tuning_results = pd.DataFrame(all_params)
-tuning_results['mdape'] = list(zip(*mdapes))[0]
-tuning_results['model']= list(zip(*mdapes))[1]
-best_params = dict(tuning_results.iloc[tuning_results[['mdape']].idxmin().values[0]])
+tuning_results['mae'] = list(zip(*maes))[0]
+tuning_results['model']= list(zip(*maes))[1]
+best_params = dict(tuning_results.iloc[tuning_results[['mae']].idxmin().values[0]])
 print(json.dumps(best_params, indent=2))
 
 # COMMAND ----------
 
-# DBTITLE 1,Register the Best Model and Move it into Staging
+# MAGIC %md
+# MAGIC ### Register the Best Model and Move it into Staging
+
+# COMMAND ----------
+
 # Register the best model
-model_details = mlflow.register_model(model_uri=best_params['model'], name=ARTIFACT_PATH)
-client = MlflowClient()
-client.transition_model_version_stage(name=model_details.name, version=model_details.version, stage='Staging')
+model_details = mlflow.register_model(model_uri=best_params['model'], name=GROUP_MODEL_NAME)
 
-# Check the lastest version
-model_version_details = client.get_model_version(name=model_details.name, version=model_details.version)
-print("The current model stage is: '{stage}'".format(stage=model_version_details.current_stage))
-
-latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=["Staging"])
-latest_staging_version = latest_version_info[0].version
-print("The latest staging version of the model '%s' is '%s'." % (ARTIFACT_PATH, latest_staging_version))
-
-model_staging_uri = "models:/{model_name}/staging".format(model_name=ARTIFACT_PATH)
-print("Loading registered model version from URI: '{model_uri}'".format(model_uri=model_staging_uri))
+# Move the model into staging
+client.transition_model_version_stage(name=GROUP_MODEL_NAME, version=model_details.version, stage='Staging')
 
 # COMMAND ----------
 

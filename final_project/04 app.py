@@ -3,14 +3,6 @@
 
 # COMMAND ----------
 
-
-from pyspark.sql.functions import col
-spark.conf.set("spark.sql.session.timeZone", "America/New_York")
-
-# COMMAND ----------
-
-=======
-
 # DBTITLE 0,YOUR APPLICATIONS CODE HERE...
 start_date = str(dbutils.widgets.get('01.start_date'))
 end_date = str(dbutils.widgets.get('02.end_date'))
@@ -18,9 +10,6 @@ hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
 promote_model = bool(True if str(dbutils.widgets.get('04.promote_model')).lower() == 'yes' else False)
 
 print(start_date,end_date,hours_to_forecast, promote_model)
-
-
-=======
 print("YOUR CODE HERE...")
 
 # COMMAND ----------
@@ -34,12 +23,12 @@ import mlflow
 
 ARTIFACT_PATH = "G10_model"
 logging.getLogger("py4j").setLevel(logging.ERROR)
+spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Table for Inference 
-
 
 # COMMAND ----------
 
@@ -140,10 +129,6 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # MAGIC ORDER BY ts DESC 
 # MAGIC )
 # MAGIC WHERE rn > 1
-
-
-
-
 
 # COMMAND ----------
 
@@ -260,9 +245,7 @@ fig.show()
 # get current time
 spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
-
 display(spark.sql("select date_trunc('hour', current_timestamp()) as current_time"))
-
 
 # COMMAND ----------
 
@@ -285,14 +268,12 @@ station_capacity = 96
 
 print("last_reported_time:" ,last_reported_time)
 print("num docks: ", num_docks_available)
-print("num bikes: ",num_bikes_available)
+print("num bikes: ", num_bikes_available)
 print("station capacity: ", station_capacity)
-
 
 # COMMAND ----------
 
 import json
-
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))

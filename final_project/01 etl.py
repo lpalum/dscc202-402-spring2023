@@ -154,6 +154,53 @@ display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("na
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Table for Inference
+
+# COMMAND ----------
+
+# create and register function
+import holidays
+from datetime import date
+
+us_holidays = holidays.US()
+
+@udf
+def isHoliday(year, month, day):
+    return date(year, month, day) in us_holidays
+spark.udf.register("isHoliday", isHoliday)
+
+# COMMAND ----------
+
+# create weather_tmp_G10_db from delta file
+spark.read.format('delta').load(BRONZE_NYC_WEATHER_PATH).createOrReplaceTempView("weather_tmp_G10_db")
+
+# COMMAND ----------
+
+# MAGIC %sql 
+# MAGIC -- Create time_weather_G10_db which will be used for inference 
+# MAGIC CREATE OR REPLACE TEMP VIEW time_weather_G10_db AS 
+# MAGIC SELECT 
+# MAGIC time as ts,
+# MAGIC year(time) as year,
+# MAGIC month(time) as month,
+# MAGIC dayofmonth(time) as dayofmonth,
+# MAGIC dayofweek(time) AS dayofweek,
+# MAGIC HOUR(time) AS hour,
+# MAGIC feels_like,
+# MAGIC COALESCE(`rain.1h`, 0) as rain_1h,
+# MAGIC explode(weather.description) AS description,
+# MAGIC isHoliday(year(time), month(time), day(time)) AS holiday
+# MAGIC FROM weather_tmp_G10_db
+# MAGIC ORDER BY time 
+
+# COMMAND ----------
+
+# %sql
+# SELECT * FROM time_weather_G10_db
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC # Silver Table
 
 # COMMAND ----------
@@ -242,6 +289,87 @@ silver_bike_weather_delta = f"{GROUP_DATA_PATH}silver_historic_bike_weather.delt
 
 # %sql
 # SELECT * FROM train_bike_weather_netChange_s
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Gold Actual Values (gold - real_netChange_g)
+
+# COMMAND ----------
+
+# see station info 
+display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
+
+# COMMAND ----------
+
+# assign station id 
+station_id = "66dc686c-0aca-11e7-82f6-3863bb44ef7c"
+# define delta path 
+gold_actual_netChange_delta = f"{GROUP_DATA_PATH}gold_actual_netChange.delta"
+
+# COMMAND ----------
+
+# with basic data processing create station_status_G10_db
+statusDf = (
+    spark.read.format('delta')
+    .load(BRONZE_STATION_STATUS_PATH).filter(col("station_id") == station_id)
+)
+statusDf = (statusDf.withColumn( "ts",col("last_reported").cast("timestamp"))
+                    .withColumn("hour", hour("ts"))
+                    .withColumn("date", to_date("ts"))
+                    .sort(col("ts").desc())
+                    )
+statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTempView("station_status_G10_db")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- with station_status_G10_db create real_netChange_G10_db
+# MAGIC CREATE OR REPLACE TEMP VIEW real_netChange_G10_db AS
+# MAGIC SELECT
+# MAGIC   date_format(ts, 'yyyy-MM-dd HH:00:00') as ts,
+# MAGIC   netChange
+# MAGIC FROM (
+# MAGIC   SELECT 
+# MAGIC   *,
+# MAGIC   num_docks_available - LEAD(num_docks_available) over (order by ts) netChange,
+# MAGIC   ROW_NUMBER() OVER(ORDER BY ts DESC) as rn
+# MAGIC FROM(
+# MAGIC   SELECT *
+# MAGIC   FROM
+# MAGIC   station_status_G10_db
+# MAGIC   WHERE ts IN (
+# MAGIC     SELECT MIN(ts) AS ts 
+# MAGIC     FROM station_status_G10_db
+# MAGIC     GROUP BY date, hour 
+# MAGIC )
+# MAGIC )
+# MAGIC ORDER BY ts DESC 
+# MAGIC )
+# MAGIC WHERE rn > 1
+
+# COMMAND ----------
+
+# write a table to delta path 
+(
+    spark.table("real_netChange_G10_db")
+    .write
+    .format("delta")
+    .mode("overwrite")
+    .save(gold_actual_netChange_delta)
+)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Create real_netChange_g table 
+# MAGIC CREATE OR REPLACE TABLE real_netChange_g AS
+# MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/gold_actual_netChange.delta/`
+
+# COMMAND ----------
+
+# %sql
+# SELECT * FROM real_netChange_g
 
 # COMMAND ----------
 

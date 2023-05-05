@@ -3,7 +3,7 @@
 
 # COMMAND ----------
 
-
+#Did not make use of widgets in this specific notebook
 #start_date = str(dbutils.widgets.get('01.start_date'))
 #end_date = str(dbutils.widgets.get('02.end_date'))
 #hours_to_forecast = int(dbutils.widgets.get('03.hours_to_forecast'))
@@ -15,6 +15,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Schema Definition and Stream Initialization for Historic Trip Data
 #Initializing stream for historic trip data 
 from pyspark.sql.types import LongType, StringType, StructType, StructField, TimestampType, DoubleType
 historic_trip_data_schema = StructType([
@@ -48,6 +49,7 @@ historic_trip_df = historic_trip_data_df.filter((col("start_station_name") == GR
 
 # COMMAND ----------
 
+# DBTITLE 1,Writing the Historic Trip Data to our Group Data Path
 #This command writes the stream for the historic trip data in order to read it in the EDA notebook
 
 historic_trip_checkpoint_path = f"dbfs:/FileStore/tables/G11/bronze/historic_trip_data/.checkpoint"
@@ -65,11 +67,14 @@ historic_trip_query = (historic_trip_df.writeStream
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/bronze/historic_trip_data'
+# MAGIC ZORDER BY started_at
+# MAGIC /*Z ordering by a time stamp more specifically the start time seemed like the most sensible out of all the attributes in this table*/
 
 # COMMAND ----------
 
+# DBTITLE 1,Bronze Station Status read
 #Reading bronze station status tables
-#STATION_ID = "66db2fd0-0aca-11e7-82f6-3863bb44ef7c"
+STATION_ID = "66db2fd0-0aca-11e7-82f6-3863bb44ef7c"
 
 bronze_station_status_df = (spark.read
                            .format("delta")
@@ -79,27 +84,30 @@ bronze_station_status_df = (spark.read
 # COMMAND ----------
 
 #Filtering to have only our station
-bronze_station_status_df = bronze_station_status_df.filter("station_id == '66db2fd0-0aca-11e7-82f6-3863bb44ef7c'")
+bronze_station_status_df = bronze_station_status_df.filter(col("station_id") == STATION_ID)
 #bronze_station_status_df.display()
 
 # COMMAND ----------
 
 #Writing bronze station status
-
 bronze_station_status_path = f"dbfs:/FileStore/tables/G11/bronze/station_status/"
 bronze_station_status_query = (bronze_station_status_df.write
                               .format("delta")
                               .mode("overwrite")
                               .save(bronze_station_status_path))
 
+#I know here it shows this 'light bulb' saying to optimize the delta table, but it referencing the delta table we are reading in as it is specified in the path below
+#so I assumed we should leave that untouched... 
+
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/bronze/station_status'
-# MAGIC ZORDER BY num_docks_available
+# MAGIC ZORDER BY last_reported
 
 # COMMAND ----------
 
+# DBTITLE 1,Reading Bronze Station Info Table
 bronze_station_info_df = (spark.read
                            .format("delta")
                            .load(BRONZE_STATION_INFO_PATH))
@@ -112,6 +120,7 @@ bronze_station_info_df = bronze_station_info_df.filter("short_name == '5492.05'"
 
 # COMMAND ----------
 
+# DBTITLE 1,Writing Bronze Station Info Table
 bronze_station_info_path = f"dbfs:/FileStore/tables/G11/bronze/station_info"
 bronze_station_info_query = (bronze_station_info_df.write
                             .format("delta")
@@ -122,9 +131,11 @@ bronze_station_info_query = (bronze_station_info_df.write
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/bronze/station_info'
+# MAGIC /* no need to zorder since there is only one row in this table */
 
 # COMMAND ----------
 
+# DBTITLE 1,Reading Stream of Historic Weather Data and Schema Definition
 #Read in historic weather
 from pyspark.sql.types import LongType, StringType, StructType, StructField, TimestampType, DoubleType, IntegerType
 historic_weather_schema = StructType([
@@ -160,6 +171,7 @@ historic_weather_df = (spark.readStream
 
 # COMMAND ----------
 
+# DBTITLE 1,Writing Stream for Historic Weather Data
 #This command writes the stream for the historic weather data in order to read it in the EDA notebook
 
 historic_weather_data_path = f"dbfs:/FileStore/tables/G11/bronze/historic_weather_data/"
@@ -176,9 +188,12 @@ historic_weather_query = (historic_weather_df.writeStream
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/bronze/historic_weather_data'
+# MAGIC ZORDER BY dt
+# MAGIC /* z ordering by time stamp seemed the most sensible... again */
 
 # COMMAND ----------
 
+# DBTITLE 1,Reading Bronze Weather Table
 #Read bronze weather table
 bronze_nyc_weather_df = (spark.read
                         .format("delta")
@@ -187,6 +202,8 @@ bronze_nyc_weather_df = (spark.read
 
 # COMMAND ----------
 
+#Fixing some slight issues in the table so that the schema is nice and easy to deal with. In this case it was a column that had an array so I exploded it and created some
+#new columns to have each attribute separately
 from pyspark.sql.functions import *
 weather_exploded_df = (bronze_nyc_weather_df.withColumn("weather", explode(col("weather"))))
 df = (weather_exploded_df.withColumn("description", col("weather.description"))
@@ -198,6 +215,7 @@ df = df.drop("weather")
 
 # COMMAND ----------
 
+# DBTITLE 1,Writing Bronze Weather Table
 bronze_weather_path = f"dbfs:/FileStore/tables/G11/bronze/weather"
 bronze_station_info_query = (df.write
                             .format("delta")
@@ -208,9 +226,11 @@ bronze_station_info_query = (df.write
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/bronze/weather'
+# MAGIC ZORDER BY dt
 
 # COMMAND ----------
 
+# DBTITLE 1,Creating Silver Table for Historic Trip Data
 #Silver table for historic trip data
 historic_trip_silver = (spark.read
     .format("delta")
@@ -225,12 +245,6 @@ historic_trip_silver = historic_trip_silver.select(
 historic_trip_silver = historic_trip_silver.withColumn("started_at", date_format(col("started_at"), "yyyy-MM-dd HH:mm:ss"))
 historic_trip_silver = historic_trip_silver.withColumn("ended_at", date_format(col("started_at"), "yyyy-MM-dd HH:mm:ss"))
 
-# COMMAND ----------
-
-historic_trip_silver.display()
-
-# COMMAND ----------
-
 silver_historic_trip_path = f"dbfs:/FileStore/tables/G11/silver/historic_trip_data/"
 silver_historic_trip_query = (historic_trip_silver.write
     .format("delta")
@@ -239,11 +253,17 @@ silver_historic_trip_query = (historic_trip_silver.write
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/historic_trip_data'
+#historic_trip_silver.display()
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/historic_trip_data'
+# MAGIC ZORDER BY started_at
+
+# COMMAND ----------
+
+# DBTITLE 1,Creating Silver Table for Historic Weather Data
 silver_historic_weather = (spark.read
     .format("delta")
     .load(historic_weather_data_path))
@@ -272,13 +292,15 @@ silver_historic_weather_query = (silver_historic_weather.write
 
 # MAGIC %sql
 # MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/historic_weather_data'
+# MAGIC ZORDER BY dt
 
 # COMMAND ----------
 
-silver_historic_weather.display()
+#silver_historic_weather.display()
 
 # COMMAND ----------
 
+# DBTITLE 1,Creating Silver Table for Station Info
 silver_station_info = (spark.read
     .format("delta")
     .load(bronze_station_info_path))
@@ -295,10 +317,17 @@ silver_station_info_query = (silver_station_info.write
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/station_info'
+# MAGIC /* no need to z order since it is only one row and one column */
+
+# COMMAND ----------
+
 #silver_station_info.display()
 
 # COMMAND ----------
 
+# DBTITLE 1,Creating Silver Table for Station Status
 silver_station_status = (spark.read
     .format("delta")
     .load(bronze_station_status_path))
@@ -310,7 +339,8 @@ silver_station_status = silver_station_status.select(
     'num_bikes_disabled',
     'num_docks_available',
     'last_reported',
-    'num_docks_disabled'
+    'num_docks_disabled',
+    'num_ebikes_available'
 )
 
 silver_station_status_path = f"dbfs:/FileStore/tables/G11/silver/station_status/"
@@ -321,10 +351,17 @@ silver_station_status_query = (silver_station_status.write
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/station_status'
+# MAGIC ZORDER BY last_reported
+
+# COMMAND ----------
+
 #silver_station_status.display()
 
 # COMMAND ----------
 
+# DBTITLE 1,Creating Silver Table for Weather
 silver_weather = (spark.read
     .format("delta")
     .load(bronze_weather_path))
@@ -352,6 +389,13 @@ silver_weather_query = (silver_weather.write
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/weather'
+# MAGIC ZORDER BY dt
+
+# COMMAND ----------
+
+# DBTITLE 1,Creating a Silver Table for Historic Data to Get an Hourly Net Inventory Change
 from pyspark.sql import Window
 import pyspark.sql.functions as f
 weather = (spark.read
@@ -378,14 +422,14 @@ joined_df = joined_df.withColumn("rounded_ended_at", date_format(from_unixtime(c
 joined_df = joined_df.drop("unix")
 
 
-
+#creating a data frame to count how many bikes are arriving to the station every hour
 df1 = joined_df.filter(joined_df.end_station_name == GROUP_STATION_ASSIGNMENT)
 df1 = df1.withColumnRenamed("rounded_ended_at", "end")
 df1 = df1.groupBy("end").count()
 df1 = df1.withColumnRenamed("count", "hour_increase")
 df1 = df1.join(weather, weather.dt == df1.end, "outer")
 
-
+#creating a dataframe to count how many bikes are leaving every hour
 df2 = joined_df.filter(joined_df.start_station_name == GROUP_STATION_ASSIGNMENT)
 df2 = df2.withColumnRenamed("rounded_started_at", "start")
 df2 = df2.groupBy("start").count()
@@ -394,37 +438,55 @@ df2 = df2.join(weather, weather.dt == df2.start, "outer")
 df2 = df2.withColumnRenamed("dt", "date")
 df2 = df2.drop("feels_like", "main", "snow_1h", "temp", "rain_1h")
 
+#joining the dataframes
 inventory = df1.join(df2, df1.dt == df2.date, "inner")
 
-inventory = inventory.fillna(value=0)
+inventory = inventory.fillna(0)
 
 inventory = inventory.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
 
+inventory = inventory.drop("start")
+inventory = inventory.drop("end")
 
 
+
+#older tests not sure if still needed
 #inventory = invetory.join(weather, weather.dt == inventory)
 
 
-joined_df = joined_df.join(df1, joined_df.rounded_ended_at == df1.end, "left")
-joined_df = joined_df.join(df2, joined_df.rounded_ended_at == df2.start, "left")
+#joined_df = joined_df.join(df1, joined_df.rounded_ended_at == df1.end, "inner")
+#joined_df = joined_df.join(df2, joined_df.rounded_ended_at == df2.start, "inner")
 
-joined_df = joined_df.fillna(value=0)
+#joined_df = joined_df.fillna(value=0)
 
-joined_df = joined_df.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
+#joined_df = joined_df.withColumn("net_hour_change", (f.col("hour_increase") - f.col("hour_decrease")))
 
-joined_df = joined_df.drop("start")
-joined_df = joined_df.drop("end")
+#joined_df = joined_df.drop("start")
+#joined_df = joined_df.drop("end")
 
 
-joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
-joined_query = (joined_df.write
-    .format("delta")
-    .mode("overwrite")
-    .option("mergeSchema", True)
-    .save(joined_path))
+
 
 # COMMAND ----------
 
+#inventory.display()
+
+# COMMAND ----------
+
+#joined_df.display()
+
+# COMMAND ----------
+
+#old tests not sure if still needed, ignore for now
+#joined_path = f"dbfs:/FileStore/tables/G11/silver/joined/"
+#joined_query = (joined_df.write
+#    .format("delta")
+#    .mode("overwrite")
+#    .save(joined_path))
+
+# COMMAND ----------
+
+# DBTITLE 1,Writing the new silver table with net inventory change
 
 inventory = inventory.select(
     'dt',
@@ -444,32 +506,9 @@ query = (inventory.write
 
 # COMMAND ----------
 
-inventory.display()
-inventory.count()
-
-# COMMAND ----------
-
-weather.count()
-
-# COMMAND ----------
-
-joined_df.display()
-
-# COMMAND ----------
-
-silver_weather.display()
-
-# COMMAND ----------
-
-#dbutils.fs.mkdirs("dbfs:/FileStore/tables/G11/silver/historic_weather_data/")
-
-# COMMAND ----------
-
-# MAGIC %fs rm -r dbfs:/FileStore/tables/G11/silver/joined/
-
-# COMMAND ----------
-
-# MAGIC %fs ls dbfs:/FileStore/tables/G11/silver/
+# MAGIC %sql
+# MAGIC OPTIMIZE 'dbfs:/FileStore/tables/G11/silver/inventory'
+# MAGIC ZORDER BY dt
 
 # COMMAND ----------
 

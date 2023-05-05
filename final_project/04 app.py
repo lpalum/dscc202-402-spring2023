@@ -30,29 +30,22 @@ spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ### Show current status
+
+# COMMAND ----------
+
 # Get and display current timestamp
 current_time = spark.sql("select date_format(current_timestamp(), 'yyyy-MM-dd HH:mm:ss') as current_time")
 unixTime = spark.sql("select to_unix_timestamp(date_trunc('hour', current_timestamp()))").collect()[0][0]
 displayHTML("<h2>Current Timestamp:</h2>")
 display(current_time)
 
-# COMMAND ----------
-
 # Get and display Production and Staging Model version
 client = MlflowClient()
 prod_model = client.get_latest_versions(GROUP_MODEL_NAME, stages=["Production"])
 staging_model = client.get_latest_versions(GROUP_MODEL_NAME, stages=["Staging"])
 displayHTML(f"<br><h2>Production Model version:</h2><h3>The latest production version of the model {GROUP_MODEL_NAME} is {prod_model[0].version}.</h3><h2>Staging Model version:</h2><h3>The latest staging version of the model {GROUP_MODEL_NAME} is {staging_model[0].version}.</h3>")
-
-# COMMAND ----------
-
-# Create map of station location and header for map
-displayHTML(f"<h2>Station Name: {GROUP_STATION_ASSIGNMENT}</h2>")
-map=folium.Map(location=[40.751551,-73.993934], zoom_start=17, min_zoom=17, max_zoom=17)
-map.add_child(folium.Marker(location=[40.751551,-73.993934], popup=GROUP_STATION_ASSIGNMENT, icon=folium.Icon(color='red')))
-map
-
-# COMMAND ----------
 
 # Get and display current weather (Temp and Percent Chance of Precip)
 @udf
@@ -64,16 +57,25 @@ dfWeather = spark.read.load(BRONZE_NYC_WEATHER_PATH)
 displayHTML("<h2>Current Weather:</h2>")
 display(dfWeather.select('dt','temp','pop').filter(dfWeather.dt==unixTime).withColumn(u"Temperature (°F)", round(kelvinToFahrenheit(col('temp')))).withColumn('Chance of Precipitation', col('pop')).drop('dt','temp','pop'))
 
-# COMMAND ----------
-
 # Total docks and total bikes available at this station
 statusDf = spark.read.load(BRONZE_STATION_STATUS_PATH).filter(col("station_id")=="66dc686c-0aca-11e7-82f6-3863bb44ef7c").withColumn("ts", date_format(col("last_reported").cast("timestamp"), 'yyyy-MM-dd HH:00:00')).sort(col("ts").desc())
 statusInfo = statusDf.select("num_docks_available", "num_bikes_available", "ts").limit(1).collect()[0]
 num_docks_available = statusInfo[0]
 num_bikes_available = statusInfo[1]
 last_report_time = statusInfo[2]
-station_capacity = 96
+
+infoDf =  spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT)
+info = infoDf.collect()[0]
+station_id = info[8]
+station_capacity = info[6]
+
 displayHTML(f"<br><h2>Docks and Bikes Information:</h2><h3>Last reported time: {last_report_time}</h3><h3>Total docks at this station: {station_capacity}</h3><h3>Total docks available at this station: {num_docks_available}</h3><h3>Total bikes available at this station: {num_bikes_available}</h3>")
+
+# Create map of station location and header for map
+displayHTML(f"<h2>Station Name: {GROUP_STATION_ASSIGNMENT}</h2>")
+map=folium.Map(location=[40.751551,-73.993934], zoom_start=17, min_zoom=17, max_zoom=17)
+map.add_child(folium.Marker(location=[40.751551,-73.993934], popup=GROUP_STATION_ASSIGNMENT, icon=folium.Icon(color='red')))
+display(map)
 
 # COMMAND ----------
 
@@ -146,13 +148,6 @@ test_data
 
 # COMMAND ----------
 
-# see station info 
-display(spark.read.format('delta').load(BRONZE_STATION_INFO_PATH).filter(col("name") == GROUP_STATION_ASSIGNMENT))
-
-# COMMAND ----------
-
-# assign station id 
-station_id = "66dc686c-0aca-11e7-82f6-3863bb44ef7c"
 # define delta path 
 gold_actual_netChange_delta = f"{GROUP_DATA_PATH}gold_actual_netChange.delta"
 
@@ -214,6 +209,11 @@ statusDf.select("ts", "date", "hour", "num_docks_available").createOrReplaceTemp
 # MAGIC -- Create real_netChange_g table 
 # MAGIC CREATE OR REPLACE TABLE real_netChange_g AS
 # MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/gold_actual_netChange.delta/`
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT * FROM real_netChange_g
 
 # COMMAND ----------
 
@@ -285,13 +285,40 @@ df_forecast
 
 # COMMAND ----------
 
-# A gold data table should store inference and monitoring data
+dbutils.fs.rm(gold_monitor_forecast, recurse = True)
 
+# COMMAND ----------
+
+# define delta path 
+gold_monitor_forecast = f"{GROUP_DATA_PATH}gold_monitor_forecast.delta"
+
+# COMMAND ----------
+
+# write a table to delta path 
+(
+    spark.createDataFrame(df_forecast)
+    .write
+    .format("delta")
+    .mode("overwrite")
+    .save(gold_monitor_forecast)
+)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- Create real_netChange_g table 
+# MAGIC CREATE OR REPLACE TABLE monitor_forecast_g AS
+# MAGIC SELECT * FROM delta. `dbfs:/FileStore/tables/G10/gold_monitor_forecast.delta/`
+
+# COMMAND ----------
+
+df_monitor = spark.sql('select * from monitor_forecast_g ORDER BY ds').toPandas()
+df_monitor
 
 # COMMAND ----------
 
 # Calculate the recent num_bikes_available
-bike_forecast = df_forecast[(df_forecast.ds > last_report_time) & (df_forecast.stage == 'prod')].reset_index(drop=True)
+bike_forecast = df_monitor[(df_monitor.ds > last_report_time) & (df_monitor.stage == 'prod')].reset_index(drop=True)
 bike_forecast['bikes_available'] = bike_forecast['yhat'].cumsum().round().astype(int) + num_bikes_available
 bike_forecast['ds'] = bike_forecast['ds'].dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -325,7 +352,7 @@ fig.show()
 # Calcluate residuals
 test_truth = spark.sql('select * from real_netChange_g').toPandas()
 test_truth['ts'] = test_truth['ts'].apply(pd.to_datetime)
-results = df_forecast.merge(test_truth, left_on='ds', right_on='ts')
+results = df_monitor.merge(test_truth, left_on='ds', right_on='ts')
 results['residual'] = results['yhat'] - results['netChange']
 
 # Plot the residuals

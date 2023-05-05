@@ -61,3 +61,7 @@ result = dbutils.notebook.run("04 app", 3600, {"01.start_date":start_date, "02.e
 
 # Check the results
 assert json.loads(result)["exit_code"] == "OK", "Data Preparation Failed!" # Check to see that it worked
+
+# COMMAND ----------
+
+

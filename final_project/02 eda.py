@@ -33,11 +33,6 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC #INSIGHTS ON BRONZE DATA SOURCES USING PANDAS PROFILING
-
-# COMMAND ----------
-
 from pyspark.sql.functions import col, from_unixtime
 import pandas as pd
 import plotly.express as px

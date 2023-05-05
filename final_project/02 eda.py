@@ -33,17 +33,15 @@ print(start_date,end_date,hours_to_forecast, promote_model)
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, from_unixtime
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC #INSIGHTS ON BRONZE DATA SOURCES USING PANDAS PROFILING
 
 # COMMAND ----------
 
+from pyspark.sql.functions import col, from_unixtime
 import pandas as pd
 import pandas_profiling
+import plotly.express as px
 
 # COMMAND ----------
 
@@ -143,11 +141,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
-# MAGIC GROUP BY year
-# MAGIC SORT BY year
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_per_year AS(
+# MAGIC     SELECT year, COUNT(ride_id) AS count FROM date_bike_G10_db
+# MAGIC     GROUP BY year
+# MAGIC     SORT BY year
+# MAGIC );
 # MAGIC
 # MAGIC --number of bike trips by year
+
+# COMMAND ----------
+
+tpy = spark.table("trips_per_year")
+pd_tpy = tpy.toPandas()
+pd_tpy.year = pd_tpy.year.astype(str)
+
+fig = px.bar(data_frame=pd_tpy, x='year', y='count', title='Bike Trips per Year', labels={'year':'Year', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -162,10 +171,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2022
-# MAGIC GROUP BY month
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_in_2022 AS(
+# MAGIC   SELECT month, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE year == 2022
+# MAGIC   GROUP BY month
+# MAGIC   SORT BY month
+# MAGIC );
+
+# COMMAND ----------
+
+tpy22 = spark.table("trips_in_2022")
+pd_t22 = tpy22.toPandas()
+pd_t22.month = pd_t22.month.astype(str)
+
+fig = px.bar(data_frame=pd_t22, x='month', y='count', title='Bike Trips per Month (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'})
+fig.show()
+
 
 # COMMAND ----------
 
@@ -175,10 +196,21 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2023
-# MAGIC GROUP BY month
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_in_2023 AS(
+# MAGIC   SELECT month, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE year == 2023
+# MAGIC   GROUP BY month
+# MAGIC   SORT BY month
+# MAGIC );  
+
+# COMMAND ----------
+
+tpy23 = spark.table("trips_in_2023")
+pd_t23 = tpy23.toPandas()
+pd_t23.month = pd_t23.month.astype(str)
+
+fig = px.bar(data_frame=pd_t23, x='month', y='count', title='Bike Trips per Month (2023)', labels={'month':'Month', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -188,10 +220,22 @@ display(df)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, year, count(ride_id) as count FROM date_bike_G10_db
-# MAGIC WHERE month IN (1,2,3) AND year IN (2022, 2023)
-# MAGIC GROUP BY month, year
-# MAGIC SORT BY month, year
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_year_comparison AS(
+# MAGIC   SELECT month, year, count(ride_id) as count FROM date_bike_G10_db
+# MAGIC   WHERE month IN (1,2,3) AND year IN (2022, 2023)
+# MAGIC   GROUP BY month, year
+# MAGIC   SORT BY month, year
+# MAGIC );
+
+# COMMAND ----------
+
+tpyc = spark.table("trips_year_comparison")
+pd_tComp = tpyc.toPandas()
+pd_tComp.month = pd_tComp.month.astype(str)
+
+fig = px.histogram(data_frame=pd_tComp, x='month', y='count', title='Comparison of Number of Bike Trips in the First Three months of 2022 and 2023', 
+    labels={'month':'Month', 'count':'Number of Bike Trips'}, barmode = 'group', color = 'year')
+fig.show()
 
 # COMMAND ----------
 
@@ -200,7 +244,7 @@ display(df)
 # MAGIC </br>
 # MAGIC <ul>
 # MAGIC <li>Bike use higher in the warmer (Summer, Fall, Spring) months</li>
-# MAGIC <li>Total number of rides in the first 3 moths of 2023 higher than total rides for the first 3 months of 2022. This could suggest that use of citibikes and the station is growing</li>
+# MAGIC <li>Total number of rides in the first 3 moths of 2023 higher than total rides for the first 3 months of 2022. This could suggest that use of citibikes and the station is growing, or alternatively, could just be due to a milder winter</li>
 
 # COMMAND ----------
 
@@ -241,22 +285,43 @@ spark.udf.register("dayNumber", dayNumber)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT DayName, DayNumber, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY DayName, DayNumber
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_per_day AS(
+# MAGIC   SELECT DayName, DayNumber, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY DayName, DayNumber
+# MAGIC   SORT BY DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+tpd = spark.table("trips_per_day")
+pd_tpd = tpd.toPandas()
+#pd_tpd.DayNumber = pd_tpd.DayNumber.astype(str)
+
+fig = px.bar(data_frame=pd_tpd, x='DayName', y='count', title='Bike Trips per Day of Week (2022)', labels={'DayName':'Day', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, DayName, DayNumber, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY month, DayNumber, DayName
-# MAGIC SORT BY month, DayNumber
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_day_month AS(
+# MAGIC   SELECT month, DayName, DayNumber, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY month, DayNumber, DayName
+# MAGIC   SORT BY month, DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+tpdm = spark.table("trips_day_month")
+pd_tpdm = tpdm.toPandas()
+
+fig = px.bar(data_frame=pd_tpdm, x='month', y='count', title='Bike Trips per Month and Day (2022)', labels={'month':'Month', 'count':'Number of Bike Trips'}, color = 'DayName')
+fig.show()
 
 # COMMAND ----------
 
@@ -280,12 +345,22 @@ spark.udf.register("dayNumber", dayNumber)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT hour, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY hour
-# MAGIC SORT BY count DESC;
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_by_hour AS(
+# MAGIC   SELECT hour, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY hour
+# MAGIC   SORT BY hour
+# MAGIC );
+
+# COMMAND ----------
+
+tpd = spark.table("trips_by_hour")
+pd_tpd = tpd.toPandas()
+
+fig = px.bar(data_frame=pd_tpd, x='hour', y='count', title='Bike Trips by Hour of the Day (2022)', labels={'hour':'Hour of Day', 'count':'Number of Bike Trips'})
+fig.show()
 
 # COMMAND ----------
 
@@ -295,12 +370,22 @@ spark.udf.register("dayNumber", dayNumber)
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC SELECT month, DayName, DayNumber, hour, count(ride_id) as count FROM(
-# MAGIC   SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
-# MAGIC   WHERE year == 2022
-# MAGIC   )
-# MAGIC GROUP BY month, DayNumber, DayName, hour
-# MAGIC SORT BY count DESC
+# MAGIC CREATE OR REPLACE TEMP VIEW trips_hour_day AS(
+# MAGIC   SELECT month, DayName, DayNumber, hour, count(ride_id) as count FROM(
+# MAGIC     SELECT concat(year, "-", month, "-", day) AS date, dayOfWeek(year, month, day) AS DayName, dayNumber(year, month, day) AS DayNumber, * FROM date_bike_G10_db
+# MAGIC     WHERE year == 2022
+# MAGIC     )
+# MAGIC   GROUP BY month, DayNumber, DayName, hour
+# MAGIC   SORT BY DayNumber
+# MAGIC );
+
+# COMMAND ----------
+
+thd = spark.table("trips_hour_day")
+pd_thd = thd.toPandas()
+
+fig = px.bar(data_frame=pd_thd, x='DayName', y='count', title='Bike Trips by Hour of the Day (2022)', labels={'DayName':'Day of the Week', 'count':'Number of Bike Trips'}, color = 'hour')
+fig.show()
 
 # COMMAND ----------
 
@@ -308,11 +393,10 @@ spark.udf.register("dayNumber", dayNumber)
 # MAGIC ##Takeaways from Exploration of Hourly Bike Use
 # MAGIC </br>
 # MAGIC <ul>
-# MAGIC <li> Top hour for bike use is 5:00 PM </li>
-# MAGIC <li> Top time of day for bike use is afternoon / evening from 2:00 PM - 6:00 PM </li>
-# MAGIC <li> 7:00 AM - 9:00 AM also are in the top ten </li>
-# MAGIC <li> 1:00 PM is in the top 10 as well, which points to the use of bikes for lunch time trips </li>
-# MAGIC <li> These trends suggest that bikes are heavily used by commuters to go to/from work/school/etc.</li>
+# MAGIC <li> Top hour for bike use is 9:00 PM </li>
+# MAGIC <li> Top time of day for bike use is night from 7:00 PM - 10:00 PM </li>
+# MAGIC <li> 11:00 AM - 1:00 PM also are in the top ten, which points to the use of bikes for lunch time trips </li>
+# MAGIC <li> These trends suggest that bikes are heavily used by people going out at nighttime - which makes sense as MSG and Penn Station are both locate right by the station</li>
 # MAGIC </ul>  
 
 # COMMAND ----------
@@ -485,10 +569,6 @@ spark.udf.register("tempRange", tempRange)
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC #STATION TRENDS
 
@@ -536,165 +616,7 @@ spark.udf.register("tempRange", tempRange)
 
 # COMMAND ----------
 
-# MAGIC %pip install --upgrade holidays
-
-# COMMAND ----------
-
-# MAGIC %sql 
-# MAGIC SHOW TABLES
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Monthly trip trends
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC CREATE OR REPLACE TEMP VIEW date_bike_G10_db AS (
-# MAGIC   SELECT  YEAR(started_at) as year, MONTH(started_at) as month, DAY(started_at) as day, HOUR(started_at) AS hour, * FROM historic_bike_trip_b
-# MAGIC )
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT year, COUNT(*) AS count FROM date_bike_G10_db
-# MAGIC GROUP BY year
-# MAGIC SORT BY year
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### Use only 2022 data 
-
-# COMMAND ----------
-
-# MAGIC %sql 
-# MAGIC SELECT month, count(*) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2022
-# MAGIC GROUP BY month
-# MAGIC SORT BY month
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC Count increases at summer
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT day, count(*) as count FROM date_bike_G10_db
-# MAGIC WHERE year == 2022
-# MAGIC GROUP BY day
-# MAGIC SORT BY day
-
-# COMMAND ----------
-
-# MAGIC %md 
-# MAGIC # holiday Trend
-
-# COMMAND ----------
-
-import holidays
-from datetime import date
-
-# COMMAND ----------
-
-us_holidays = holidays.US()
-
-# COMMAND ----------
-
-@udf
-def isHoliday(year, month, day):
-    return date(year, month, day) in us_holidays
-spark.udf.register("isHoliday", isHoliday)
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT holiday, avg(count) as count FROM(
-# MAGIC   SELECT date, count(*) as count , max(holiday) as holiday
-# MAGIC   FROM (
-# MAGIC     SELECT concat(year, " ", month, " ", day) AS date, isHoliday(year, month, day) AS holiday, * FROM date_bike_G10_db
-# MAGIC   )
-# MAGIC GROUP BY date
-# MAGIC )
-# MAGIC GROUP BY holiday
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT holiday, count(*) as count FROM(
-# MAGIC   SELECT *, isHoliday(year, month, day) AS holiday FROM date_bike_G10_db
-# MAGIC )
-# MAGIC GROUP BY holiday
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM date_bike_G10_db
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC # Weather
-
-# COMMAND ----------
-
-import pandas_profiling
-
-# COMMAND ----------
-
-df = spark.table("historic_weather_b")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_weather_b
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC CREATE OR REPLACE TEMP VIEW historic_bike_weather_G10_db AS(
-# MAGIC    SELECT day, hour, feels_like, humidity, wind_speed, main, description
-# MAGIC  FROM date_bike_G10_db AS B JOIN historic_weather_b AS W
-# MAGIC  ON W.time BETWEEN B.started_at AND B.ended_at
-# MAGIC )
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_bike_weather_G10_db
-
-# COMMAND ----------
-
-displayHTML(pandas_profiling.ProfileReport(df.toPandas()).html)
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT * FROM historic_weather_b
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT to_date(time) from historic_weather_b
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
 import json
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
-
-# COMMAND ----------
-
-

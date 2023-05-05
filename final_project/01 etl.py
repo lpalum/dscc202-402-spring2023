@@ -3,7 +3,7 @@
 
 # COMMAND ----------
 
-from pyspark.sql.functions import to_date, col,lit
+from pyspark.sql.functions import *
 spark.conf.set("spark.sql.session.timeZone", "America/New_York")
 
 start_date = str(dbutils.widgets.get('01.start_date'))

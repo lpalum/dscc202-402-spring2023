@@ -112,8 +112,8 @@ from pyspark.sql.functions import when
 diff = real_time_inventory.withColumn("difference", when(col('index').between(0, 7), None).otherwise(col('diff')))
 
 
-display(real_time_inventory)
-display(diff)
+#display(real_time_inventory)
+#display(diff)
 
 # COMMAND ----------
 
@@ -124,7 +124,7 @@ data = weather.join(real_time_inventory, weather.dt == real_time_inventory.round
 test_data = data.toPandas()
 test_data = test_data.rename(columns={'dt':'ds'}).rename(columns={'diff': 'y'})
 test_data['ds'] = test_data['ds'].apply(pd.to_datetime)
-print(test_data)
+#print(test_data)
 
 # COMMAND ----------
 
@@ -141,6 +141,10 @@ prod_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
 
 # COMMAND ----------
 
+display(test_data)
+
+# COMMAND ----------
+
 prophet_plot = model_prod.plot(prod_forecast)
 
 # COMMAND ----------
@@ -149,6 +153,7 @@ prophet_plot2 = model_prod.plot_components(prod_forecast)
 
 # COMMAND ----------
 
+# DBTITLE 1,Residual of production model
 test_data.ds = pd.to_datetime(test_data.ds)
 prod_forecast.ds = pd.to_datetime(prod_forecast.ds)
 results = prod_forecast[['ds','yhat']].merge(test_data,on="ds")
@@ -177,6 +182,10 @@ staging_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 prophet_plot = model_staging.plot(staging_forecast)
 
 # COMMAND ----------
@@ -185,6 +194,7 @@ prophet_plot2 = model_staging.plot_components(staging_forecast)
 
 # COMMAND ----------
 
+# DBTITLE 1,Residual of Staging Model
 test_data.ds = pd.to_datetime(test_data.ds)
 staging_forecast.ds = pd.to_datetime(staging_forecast.ds)
 results = staging_forecast[['ds','yhat']].merge(test_data,on="ds")
@@ -198,6 +208,22 @@ fig = px.scatter(
     trendline='ols'
 )
 fig.show()
+
+# COMMAND ----------
+
+# DBTITLE 1,Here it is only forecasting the next 4 hours
+#I managed to get it to forecast only the hours specified in the widget but can't figure out how to show that more in detail
+from datetime import timedelta
+currentdate = pd.to_datetime(currentdate)
+end_pred = currentdate + timedelta(hours=hours_to_forecast)
+future_dates = pd.DataFrame(pd.date_range(start=currentdate, end= end_pred, freq='H'), columns=['ds'])
+future_df = spark.createDataFrame(future_dates)
+df = weather.join(future_df, future_df.ds == weather.dt, 'inner')
+test = df.toPandas()
+df.display()
+forecast = model_prod.predict(test)
+print(forecast)
+model_prod.plot(forecast)
 
 # COMMAND ----------
 

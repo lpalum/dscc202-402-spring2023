@@ -5,7 +5,7 @@
 
 # DBTITLE 1,Organization of the Notebook
 # MAGIC %md
-# MAGIC The first half of this notebook is mostly pandas-profiling results showing us information about the individual variables. The second half are graphs and relationships between hours, days, weeks, months, and years and the number of trips. 
+# MAGIC The first half of this notebook is mostly pandas-profiling results showing us information about the individual variables. The second half are graphs and relationships between hours, days, weeks, months, years, and weather and their relationship with the number of trips that occur. 
 
 # COMMAND ----------
 
@@ -417,6 +417,32 @@ plt.show()
 # MAGIC 2022 probably has the most trips in it, because in 2022 pretty much all covid restrictions were lifted and people were more motivated to go outside more and ride more bikes. 
 # MAGIC
 # MAGIC 2023 has less trips in it, because the year is still not done. 
+
+# COMMAND ----------
+
+# DBTITLE 1,Weather Trends
+weather_trips = (spark.read.format("delta").load("dbfs:/FileStore/tables/G11/silver/inventory/"))
+weather_trips.display()
+
+# COMMAND ----------
+
+from pyspark.sql.functions import *
+
+df4 = (weather_trips.withColumn("hour_change", abs("net_hour_change")))
+df5 = (df4.select("main", "hour_change"))
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+df6 = df4.groupBy(df5.main).count().orderBy(df5.main)
+df = df6.select("*").toPandas()
+ax = df.plot.bar(x='main', y='count', rot=30)
+
+# COMMAND ----------
+
+# DBTITLE 1,Weather Trends Explanations
+# MAGIC %md
+# MAGIC Our findings here are pretty interesting. There are pretty much no rides being done under more extreme conditions such as thunderstorms, snow, and smoke. It seems as though most of the activity is being done during times where it is either cloudy or clear skies. Although there is a decrease in activity while it is raining, there is still a fair amount of activity. As you can see on the histogram there are basically no rides during drizzle, fog, or haze. This is most likely due to lack of reporting those weather conditions, it likely happens more often than displayed here.
 
 # COMMAND ----------
 

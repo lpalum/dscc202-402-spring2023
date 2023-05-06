@@ -98,31 +98,7 @@ for params in all_params:
         m.add_regressor('temp')
         m.fit(train_data)
 
-        # Cross-validation
-        # df_cv = cross_validation(model=m, initial='710 days', period='180 days', horizon = '365 days', parallel="threads")
-        # Model performance
-        # df_p = performance_metrics(m, rolling_window=1)
-
         y_pred = m.predict(test_data.dropna())
-
-        #df_p = performance_metrics(y_pred, rolling_window=1)
-        
-        #metric_keys = ["mse", "rmse", "mae", "mape", "mdape", "smape", "coverage"]
-        #metrics = {k: y_pred[k].mean() for k in metric_keys}
-        #params = extract_params(m)
-       
-
-        #print(f"Logged Metrics: \n{json.dumps(metrics, indent=2)}")
-        #print(f"Logged Params: \n{json.dumps(params, indent=2)}")
-
-        #mlflow.prophet.log_model(m, artifact_path=ARTIFCAT_PATH)
-        #mlflow.log_params(params)
-        #mlflow.log_metrics(metrics)
-        #model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
-
-        #mapes.append((y_pred['mape'].values[0],model_uri))
-
-       
 
         mae = mean_absolute_error(y_test.dropna(), y_pred['yhat'])
         mlflow.prophet.log_model(m, artifact_path=ARTIFACT_PATH)
@@ -137,21 +113,16 @@ for params in all_params:
 # COMMAND ----------
 
 # Tuning results
-
 tuning_results = pd.DataFrame(all_params)
 tuning_results['mae'] = list(zip(*maes))[0]
 tuning_results['model']= list(zip(*maes))[1]
-
 best_params = dict(tuning_results.iloc[tuning_results[['mae']].idxmin().values[0]])
-
 best_params
 
 # COMMAND ----------
 
 loaded_model = mlflow.prophet.load_model(best_params['model'])
-
 forecast = loaded_model.predict(test_data)
-
 print(f"forecast:\n${forecast.tail(40)}")
 
 # COMMAND ----------
@@ -170,7 +141,6 @@ forecast.ds = pd.to_datetime(forecast.ds)
 results = forecast[['ds','yhat']].merge(test_data,on="ds")
 results['residual'] = results['yhat'] - results['y']
 
-
 # COMMAND ----------
 
 # Plot the residuals
@@ -187,7 +157,6 @@ fig.show()
 # Register Model to MLFlow
 
 model_details = mlflow.register_model(model_uri=best_params['model'], name=GROUP_MODEL_NAME)
-
 
 # COMMAND ----------
 

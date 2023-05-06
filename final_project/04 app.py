@@ -91,7 +91,12 @@ station_status = (spark.read
     .format("delta")
     .load('dbfs:/FileStore/tables/G11/silver/station_status'))
 
+
+
 display(station_status.filter(col("last_reported") <= currenthour).sort(desc("last_reported")).head(1))
+now = station_status.filter(col("last_reported") <= currenthour).sort(desc("last_reported"))
+bikes_available = now.collect()[0][0]
+print(bikes_available)
 
 # COMMAND ----------
 
@@ -110,10 +115,6 @@ from pyspark.sql.functions import monotonically_increasing_id
 real_time_inventory = real_time_inventory.withColumn("index", monotonically_increasing_id())
 from pyspark.sql.functions import when
 diff = real_time_inventory.withColumn("difference", when(col('index').between(0, 7), None).otherwise(col('diff')))
-
-
-#display(real_time_inventory)
-#display(diff)
 
 # COMMAND ----------
 
@@ -170,6 +171,16 @@ fig.show()
 
 # COMMAND ----------
 
+# DBTITLE 1,Gold table for results from production model
+production_results_path = f"dbfs:/FileStore/tables/G11/gold/production_results"
+results_df = spark.createDataFrame(results)
+results_production = (results_df.write
+    .format("delta")
+    .mode("overwrite")
+    .save(production_results_path))
+
+# COMMAND ----------
+
 latest_version_info = client.get_latest_versions(ARTIFACT_PATH, stages=['Staging'])
 latest_staging_version = latest_version_info[0].version
 print("The latest staging version of the model '%s' is '%s'." %(ARTIFACT_PATH, latest_staging_version))
@@ -179,10 +190,6 @@ model_staging_uri = f'models:/{ARTIFACT_PATH}/staging'
 model_staging = mlflow.prophet.load_model(model_staging_uri)
 staging_forecast = model_staging.predict(test_data)
 staging_forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']]
-
-# COMMAND ----------
-
-
 
 # COMMAND ----------
 
@@ -211,6 +218,16 @@ fig.show()
 
 # COMMAND ----------
 
+# DBTITLE 1,Gold table for output of staging model
+staging_results_path = f"dbfs:/FileStore/tables/G11/gold/staging_results"
+results_df = spark.createDataFrame(results)
+results_staging = (results_df.write
+    .format("delta")
+    .mode("overwrite")
+    .save(staging_results_path))
+
+# COMMAND ----------
+
 # DBTITLE 1,Here it is only forecasting the next 4 hours
 #I managed to get it to forecast only the hours specified in the widget but can't figure out how to show that more in detail
 from datetime import timedelta
@@ -220,10 +237,18 @@ future_dates = pd.DataFrame(pd.date_range(start=currentdate, end= end_pred, freq
 future_df = spark.createDataFrame(future_dates)
 df = weather.join(future_df, future_df.ds == weather.dt, 'inner')
 test = df.toPandas()
-df.display()
+#df.display()
 forecast = model_prod.predict(test)
+forecast['yhat']= forecast['yhat'] + bikes_available
+forecast['yhat_lower']= forecast['yhat_lower'] + bikes_available
+forecast['yhat_upper']= forecast['yhat_upper'] + bikes_available
 print(forecast)
-model_prod.plot(forecast)
+fig = model_prod.plot(forecast)
+ax = fig.gca()
+ax.set_xlim(currentdate, end_pred)
+ax.set_ylim(-5, 35)
+ax.axhline(y=33, color='red')
+ax.axhline(y=0, color='red')
 
 # COMMAND ----------
 
@@ -231,3 +256,7 @@ import json
 
 # Return Success
 dbutils.notebook.exit(json.dumps({"exit_code": "OK"}))
+
+# COMMAND ----------
+
+

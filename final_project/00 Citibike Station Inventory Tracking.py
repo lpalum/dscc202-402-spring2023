@@ -14,7 +14,7 @@ import json
 
 dbutils.widgets.removeAll()
 
-dbutils.widgets.text('01.start_date', "2021-10-01")
+dbutils.widgets.text('01.start_date', "2022-10-01")
 dbutils.widgets.text('02.end_date', "2023-03-01")
 dbutils.widgets.text('03.hours_to_forecast', '4')
 dbutils.widgets.text('04.promote_model', 'No')
@@ -61,3 +61,7 @@ result = dbutils.notebook.run("04 app", 3600, {"01.start_date":start_date, "02.e
 
 # Check the results
 assert json.loads(result)["exit_code"] == "OK", "Data Preparation Failed!" # Check to see that it worked
+
+# COMMAND ----------
+
+
